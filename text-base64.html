@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Text ↔ Base64 — QuickDev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --surface: #131720;
+    --surface2: #1a2030;
+    --border: #242c3d;
+    --text: #e8edf5;
+    --muted: #6b7a99;
+    --accent-dev: #4fffb0;
+    --accent-img: #ff8c42;
+    --accent-pdf: #7b8fff;
+    --glow-dev: rgba(79,255,176,0.15);
+    --glow-img: rgba(255,140,66,0.15);
+    --glow-pdf: rgba(123,143,255,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.4;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.4;
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 10;
+    padding: 0 clamp(20px, 5vw, 80px);
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,14,20,0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.25rem; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--text); text-decoration: none;
+  }
+  .logo span { color: var(--accent-dev); }
+
+  nav { display: flex; gap: 8px; align-items: center; }
+  nav a {
+    font-size: 0.8rem; font-weight: 500; color: var(--muted);
+    text-decoration: none; padding: 6px 14px; border-radius: 6px;
+    letter-spacing: 0.03em; text-transform: uppercase;
+    transition: color 0.2s, background 0.2s;
+  }
+  nav a:hover { color: var(--text); background: var(--surface2); }
+  nav a.active { color: var(--accent-dev); background: rgba(79,255,176,0.08); }
+
+  .badge-new {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.72rem; font-family: 'DM Mono', monospace;
+    background: rgba(79,255,176,0.1); color: var(--accent-dev);
+    border: 1px solid rgba(79,255,176,0.3);
+    padding: 5px 12px; border-radius: 100px; text-decoration: none;
+    transition: background 0.2s;
+  }
+  .badge-new::before { content: '●'; font-size: 0.5rem; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .badge-new:hover { background: rgba(79,255,176,0.2); }
+
+  /* ── BREADCRUMB ── */
+  .breadcrumb {
+    position: relative; z-index: 5;
+    padding: 20px clamp(20px,5vw,80px) 0;
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    color: var(--muted);
+    animation: fadeUp 0.5s 0.1s both;
+  }
+  .breadcrumb a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent-dev); }
+  .breadcrumb span { color: var(--accent-dev); }
+
+  /* ── PAGE HERO ── */
+  .page-hero {
+    position: relative; z-index: 5;
+    padding: clamp(32px,6vh,64px) clamp(20px,5vw,80px) 40px;
+    max-width: 1200px; margin: 0 auto;
+  }
+
+  .tool-eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem; color: var(--accent-dev);
+    letter-spacing: 0.15em; text-transform: uppercase;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+    animation: fadeUp 0.5s 0.15s both;
+  }
+  .tool-eyebrow::before {
+    content: '';
+    width: 28px; height: 1px; background: var(--accent-dev); opacity: 0.6;
+  }
+
+  .page-hero h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 5vw, 3.6rem);
+    font-weight: 300; line-height: 1.1; letter-spacing: -0.03em;
+    margin-bottom: 16px;
+    animation: fadeUp 0.6s 0.2s both;
+  }
+  .page-hero h1 em {
+    font-style: italic; font-weight: 700;
+    background: linear-gradient(135deg, var(--accent-dev), #00d4ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+
+  .page-desc {
+    font-size: 1rem; color: var(--muted); max-width: 560px;
+    line-height: 1.7; margin-bottom: 32px;
+    animation: fadeUp 0.6s 0.3s both;
+  }
+
+  /* ── TOOL META CHIPS ── */
+  .tool-meta {
+    display: flex; gap: 10px; flex-wrap: wrap;
+    animation: fadeUp 0.6s 0.35s both;
+    margin-bottom: 0;
+  }
+  .chip {
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    padding: 4px 12px; border-radius: 100px;
+    display: flex; align-items: center; gap: 5px;
+    letter-spacing: 0.05em;
+  }
+  .chip-green { background: rgba(79,255,176,0.08); color: var(--accent-dev); border: 1px solid rgba(79,255,176,0.2); }
+  .chip-muted { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(16px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  /* ── SECTION DIVIDER ── */
+  .section-divider {
+    position: relative; z-index: 5;
+    max-width: 1200px; margin: 40px auto 0;
+    padding: 0 clamp(20px,5vw,80px);
+    display: flex; align-items: center; gap: 20px;
+  }
+  .section-divider::before, .section-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .section-label {
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    color: var(--muted); white-space: nowrap;
+  }
+
+  /* ── MAIN TOOL LAYOUT ── */
+  .tool-wrapper {
+    position: relative; z-index: 5;
+    max-width: 1200px; margin: 0 auto;
+    padding: 40px clamp(20px,5vw,80px) 100px;
+    animation: fadeUp 0.7s 0.4s both;
+  }
+
+  /* ── MODE TABS ── */
+  .mode-tabs {
+    display: flex; gap: 4px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 4px;
+    width: fit-content; margin-bottom: 32px;
+  }
+  .tab-btn {
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.88rem; font-weight: 700;
+    padding: 9px 22px; border-radius: 9px; border: none; cursor: pointer;
+    transition: all 0.2s; color: var(--muted); background: transparent;
+    display: flex; align-items: center; gap: 7px;
+    letter-spacing: -0.01em;
+  }
+  .tab-btn.active {
+    background: rgba(79,255,176,0.12); color: var(--accent-dev);
+    box-shadow: 0 0 0 1px rgba(79,255,176,0.25);
+  }
+  .tab-btn:hover:not(.active) { color: var(--text); background: var(--surface2); }
+
+  /* ── ENCODER / DECODER PANELS ── */
+  .tool-panel { display: none; }
+  .tool-panel.active { display: block; }
+
+  /* ── TWO COLUMN LAYOUT ── */
+  .converter-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0;
+    align-items: start;
+  }
+
+  .pane-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    transition: border-color 0.25s;
+  }
+  .pane-card:focus-within {
+    border-color: rgba(79,255,176,0.4);
+    box-shadow: 0 0 0 3px rgba(79,255,176,0.06);
+  }
+
+  .pane-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .pane-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); display: flex; align-items: center; gap: 8px;
+  }
+  .pane-label .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent-dev); opacity: 0.7;
+  }
+
+  .pane-actions { display: flex; gap: 6px; }
+  .pane-btn {
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    padding: 4px 10px; border-radius: 6px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer;
+    letter-spacing: 0.05em; transition: all 0.2s;
+  }
+  .pane-btn:hover { color: var(--accent-dev); border-color: rgba(79,255,176,0.35); background: rgba(79,255,176,0.06); }
+  .pane-btn.copied { color: var(--accent-dev); border-color: rgba(79,255,176,0.4); }
+
+  textarea {
+    width: 100%; min-height: 320px;
+    background: transparent; border: none; outline: none;
+    color: var(--text); font-family: 'DM Mono', monospace;
+    font-size: 0.82rem; line-height: 1.65;
+    padding: 18px 20px; resize: vertical;
+    caret-color: var(--accent-dev);
+  }
+  textarea::placeholder { color: var(--muted); opacity: 0.6; }
+  textarea::-webkit-scrollbar { width: 5px; }
+  textarea::-webkit-scrollbar-track { background: transparent; }
+  textarea::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* ── ARROW COLUMN ── */
+  .arrow-col {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 0 16px; gap: 10px;
+    min-height: 200px;
+    align-self: stretch;
+  }
+
+  .convert-btn {
+    width: 48px; height: 48px; border-radius: 50%;
+    border: 1px solid rgba(79,255,176,0.3);
+    background: rgba(79,255,176,0.08);
+    color: var(--accent-dev); font-size: 1.2rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .convert-btn:hover {
+    background: rgba(79,255,176,0.18);
+    box-shadow: 0 0 20px rgba(79,255,176,0.2);
+    transform: scale(1.08);
+  }
+  .convert-btn:active { transform: scale(0.96); }
+
+  /* ── OPTIONS BAR ── */
+  .options-bar {
+    display: flex; align-items: center; gap: 20px;
+    flex-wrap: wrap;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 28px;
+  }
+
+  .opt-label {
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .select-wrap {
+    position: relative;
+  }
+  select {
+    appearance: none;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    padding: 7px 32px 7px 12px; border-radius: 8px; cursor: pointer;
+    outline: none; transition: border-color 0.2s;
+  }
+  select:focus { border-color: rgba(79,255,176,0.4); }
+  .select-wrap::after {
+    content: '▾'; position: absolute; right: 10px; top: 50%;
+    transform: translateY(-50%); pointer-events: none;
+    color: var(--muted); font-size: 0.7rem;
+  }
+
+  .toggle-group { display: flex; gap: 6px; }
+  .toggle-btn {
+    font-family: 'DM Mono', monospace; font-size: 0.72rem;
+    padding: 6px 14px; border-radius: 7px; border: 1px solid var(--border);
+    background: transparent; color: var(--muted); cursor: pointer;
+    transition: all 0.18s; letter-spacing: 0.04em;
+  }
+  .toggle-btn.on {
+    background: rgba(79,255,176,0.1); color: var(--accent-dev);
+    border-color: rgba(79,255,176,0.3);
+  }
+  .toggle-btn:hover:not(.on) { color: var(--text); background: var(--surface2); }
+
+  /* ── ACTION ROW ── */
+  .action-row {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    margin-top: 24px;
+  }
+
+  .btn-primary {
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.9rem; font-weight: 700;
+    padding: 11px 28px; border-radius: 10px;
+    border: none; cursor: pointer;
+    background: var(--accent-dev); color: #0b0e14;
+    letter-spacing: -0.01em;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .btn-primary:hover {
+    box-shadow: 0 0 24px rgba(79,255,176,0.35);
+    transform: translateY(-1px);
+  }
+  .btn-primary:active { transform: translateY(0); }
+
+  .btn-ghost {
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.88rem; font-weight: 500;
+    padding: 11px 22px; border-radius: 10px;
+    border: 1px solid var(--border); background: transparent;
+    color: var(--muted); cursor: pointer;
+    transition: all 0.2s;
+  }
+  .btn-ghost:hover { color: var(--text); border-color: rgba(255,255,255,0.15); background: var(--surface2); }
+
+  /* ── STATS ROW ── */
+  .stats-row {
+    display: flex; gap: 28px; flex-wrap: wrap; margin-top: 24px;
+  }
+  .stat-item {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .stat-val {
+    font-family: 'Fraunces', serif;
+    font-size: 1.5rem; font-weight: 700; line-height: 1;
+    color: var(--accent-dev);
+  }
+  .stat-lbl {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+  }
+
+  /* ── INFO CARDS ── */
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin-top: 64px;
+  }
+
+  .info-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 14px; padding: 24px 22px;
+    position: relative; overflow: hidden;
+    transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s;
+  }
+  .info-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at top left, var(--glow-dev), transparent 70%);
+    opacity: 0; transition: opacity 0.25s; border-radius: inherit;
+  }
+  .info-card:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(0,0,0,0.4); }
+  .info-card:hover::before { opacity: 1; }
+  .info-card:hover { border-color: rgba(79,255,176,0.4); }
+
+  .info-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; background: rgba(79,255,176,0.12);
+    margin-bottom: 14px;
+  }
+  .info-card h3 {
+    font-size: 0.95rem; font-weight: 700; letter-spacing: -0.01em;
+    margin-bottom: 8px;
+  }
+  .info-card p {
+    font-size: 0.8rem; color: var(--muted); line-height: 1.6;
+  }
+
+  /* ── SECTION HEADER ── */
+  .section-head {
+    display: flex; align-items: baseline; gap: 14px; margin-bottom: 8px;
+    margin-top: 64px;
+  }
+  .section-head h2 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.5rem; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--accent-dev);
+  }
+  .section-head p {
+    font-size: 0.82rem; color: var(--muted); line-height: 1.5;
+    max-width: 640px; margin-top: 6px;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--surface2); border: 1px solid rgba(79,255,176,0.35);
+    color: var(--accent-dev); font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    padding: 10px 22px; border-radius: 100px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 100; pointer-events: none;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast::before { content: '✓'; font-size: 0.9rem; }
+
+  /* ── ERROR STATE ── */
+  .error-banner {
+    background: rgba(255,90,90,0.08); border: 1px solid rgba(255,90,90,0.25);
+    border-radius: 10px; padding: 12px 18px;
+    font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    color: #ff7b7b; display: none; align-items: center; gap: 10px;
+    margin-top: 12px;
+  }
+  .error-banner.show { display: flex; }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative; z-index: 5;
+    border-top: 1px solid var(--border);
+    padding: 32px clamp(20px,5vw,80px);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 16px;
+  }
+  footer p { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--muted); }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent-dev); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 780px) {
+    .converter-grid { grid-template-columns: 1fr; }
+    .arrow-col { flex-direction: row; min-height: auto; padding: 8px 0; justify-content: center; }
+    .convert-btn { transform: rotate(90deg); }
+    nav a { display: none; }
+  }
+  @media (max-width: 480px) {
+    .mode-tabs { width: 100%; }
+    .tab-btn { flex: 1; justify-content: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#">Quick<span>Dev</span></a>
+  <nav>
+    <a href="#" class="active">Dev</a>
+    <a href="#">Images</a>
+    <a href="#">PDF</a>
+    <a class="badge-new" href="#">What's New &nbsp;7</a>
+  </nav>
+</header>
+
+<!-- BREADCRUMB -->
+<div class="breadcrumb">
+  <a href="#">Home</a>
+  <span style="color:var(--muted)">›</span>
+  <a href="#">Developer Tools</a>
+  <span style="color:var(--muted)">›</span>
+  <span>Text ↔ Base64</span>
+</div>
+
+<!-- PAGE HERO -->
+<section class="page-hero">
+  <div class="tool-eyebrow">Developer Tools</div>
+  <h1>Text ↔ <em>Base64</em><br>Encoder &amp; Decoder</h1>
+  <p class="page-desc">Encode plain text to Base64 or decode Base64 strings back to readable text. Supports UTF-8, URL-safe mode, and line wrapping. All processing happens in your browser.</p>
+  <div class="tool-meta">
+    <span class="chip chip-green">⚡ Client-side only</span>
+    <span class="chip chip-green">🔒 No data uploaded</span>
+    <span class="chip chip-muted">UTF-8 · URL-safe · RFC 4648</span>
+  </div>
+</section>
+
+<!-- DIVIDER -->
+<div class="section-divider"><span class="section-label">Tool</span></div>
+
+<!-- TOOL AREA -->
+<div class="tool-wrapper">
+
+  <!-- MODE TABS -->
+  <div class="mode-tabs" role="tablist">
+    <button class="tab-btn active" role="tab" onclick="switchMode('encode')" id="tab-encode">
+      <span>⇡</span> Encode
+    </button>
+    <button class="tab-btn" role="tab" onclick="switchMode('decode')" id="tab-decode">
+      <span>⇣</span> Decode
+    </button>
+  </div>
+
+  <!-- OPTIONS BAR -->
+  <div class="options-bar">
+    <span class="opt-label">Charset</span>
+    <div class="select-wrap">
+      <select id="charset" onchange="processLive()">
+        <option value="utf8">UTF-8</option>
+        <option value="ascii">ASCII</option>
+        <option value="latin1">Latin-1</option>
+      </select>
+    </div>
+    <span class="opt-label" style="margin-left:8px">Variant</span>
+    <div class="toggle-group">
+      <button class="toggle-btn on" id="tb-standard" onclick="setVariant('standard')">Standard</button>
+      <button class="toggle-btn" id="tb-urlsafe" onclick="setVariant('urlsafe')">URL-safe</button>
+    </div>
+    <span class="opt-label" style="margin-left:8px">Line wrap</span>
+    <div class="toggle-group">
+      <button class="toggle-btn on" id="tw-none" onclick="setWrap('none')">None</button>
+      <button class="toggle-btn" id="tw-76" onclick="setWrap('76')">76</button>
+      <button class="toggle-btn" id="tw-64" onclick="setWrap('64')">64</button>
+    </div>
+  </div>
+
+  <!-- ENCODE PANEL -->
+  <div class="tool-panel active" id="panel-encode">
+    <div class="converter-grid">
+      <!-- INPUT -->
+      <div class="pane-card">
+        <div class="pane-header">
+          <div class="pane-label"><span class="dot"></span> Plain Text Input</div>
+          <div class="pane-actions">
+            <button class="pane-btn" onclick="pasteInput('encode')">Paste</button>
+            <button class="pane-btn" onclick="clearInput('encode')">Clear</button>
+          </div>
+        </div>
+        <textarea id="enc-input" placeholder="Enter plain text to encode…" oninput="processLive()" spellcheck="false"></textarea>
+      </div>
+
+      <!-- ARROW -->
+      <div class="arrow-col">
+        <button class="convert-btn" onclick="processNow()" title="Encode">→</button>
+      </div>
+
+      <!-- OUTPUT -->
+      <div class="pane-card">
+        <div class="pane-header">
+          <div class="pane-label"><span class="dot"></span> Base64 Output</div>
+          <div class="pane-actions">
+            <button class="pane-btn" id="copy-enc-btn" onclick="copyOutput('encode')">Copy</button>
+            <button class="pane-btn" onclick="downloadOutput('encode')">Download</button>
+          </div>
+        </div>
+        <textarea id="enc-output" placeholder="Base64 encoded result will appear here…" readonly spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <div class="error-banner" id="enc-error">
+      <span>⚠</span> <span id="enc-error-msg">An error occurred.</span>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-primary" onclick="processNow()">⇡ &nbsp;Encode to Base64</button>
+      <button class="btn-ghost" onclick="swapMode()">⇄ &nbsp;Switch to Decode</button>
+      <button class="btn-ghost" onclick="clearAll('encode')">✕ &nbsp;Clear All</button>
+    </div>
+
+    <div class="stats-row" id="enc-stats" style="display:none">
+      <div class="stat-item"><span class="stat-val" id="enc-in-chars">0</span><span class="stat-lbl">Input Chars</span></div>
+      <div class="stat-item"><span class="stat-val" id="enc-out-chars">0</span><span class="stat-lbl">Output Chars</span></div>
+      <div class="stat-item"><span class="stat-val" id="enc-ratio">—</span><span class="stat-lbl">Size Ratio</span></div>
+      <div class="stat-item"><span class="stat-val" id="enc-lines">1</span><span class="stat-lbl">Output Lines</span></div>
+    </div>
+  </div>
+
+  <!-- DECODE PANEL -->
+  <div class="tool-panel" id="panel-decode">
+    <div class="converter-grid">
+      <!-- INPUT -->
+      <div class="pane-card">
+        <div class="pane-header">
+          <div class="pane-label"><span class="dot"></span> Base64 Input</div>
+          <div class="pane-actions">
+            <button class="pane-btn" onclick="pasteInput('decode')">Paste</button>
+            <button class="pane-btn" onclick="clearInput('decode')">Clear</button>
+          </div>
+        </div>
+        <textarea id="dec-input" placeholder="Paste Base64 string to decode…" oninput="processLive()" spellcheck="false"></textarea>
+      </div>
+
+      <!-- ARROW -->
+      <div class="arrow-col">
+        <button class="convert-btn" onclick="processNow()" title="Decode">→</button>
+      </div>
+
+      <!-- OUTPUT -->
+      <div class="pane-card">
+        <div class="pane-header">
+          <div class="pane-label"><span class="dot"></span> Decoded Text Output</div>
+          <div class="pane-actions">
+            <button class="pane-btn" id="copy-dec-btn" onclick="copyOutput('decode')">Copy</button>
+            <button class="pane-btn" onclick="downloadOutput('decode')">Download</button>
+          </div>
+        </div>
+        <textarea id="dec-output" placeholder="Decoded plain text will appear here…" readonly spellcheck="false"></textarea>
+      </div>
+    </div>
+
+    <div class="error-banner" id="dec-error">
+      <span>⚠</span> <span id="dec-error-msg">Invalid Base64 string.</span>
+    </div>
+
+    <div class="action-row">
+      <button class="btn-primary" onclick="processNow()">⇣ &nbsp;Decode from Base64</button>
+      <button class="btn-ghost" onclick="swapMode()">⇄ &nbsp;Switch to Encode</button>
+      <button class="btn-ghost" onclick="clearAll('decode')">✕ &nbsp;Clear All</button>
+    </div>
+
+    <div class="stats-row" id="dec-stats" style="display:none">
+      <div class="stat-item"><span class="stat-val" id="dec-in-chars">0</span><span class="stat-lbl">Input Chars</span></div>
+      <div class="stat-item"><span class="stat-val" id="dec-out-chars">0</span><span class="stat-lbl">Output Chars</span></div>
+      <div class="stat-item"><span class="stat-val" id="dec-ratio">—</span><span class="stat-lbl">Size Ratio</span></div>
+      <div class="stat-item"><span class="stat-val" id="dec-valid">—</span><span class="stat-lbl">Valid</span></div>
+    </div>
+  </div>
+
+  <!-- INFO SECTION -->
+  <div class="section-head">
+    <div>
+      <h2>About Base64 Encoding</h2>
+      <p>Base64 is a binary-to-text encoding scheme representing binary data in an ASCII string format. It's widely used for embedding binary data in text-based formats like JSON, HTML, and email.</p>
+    </div>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-icon">⇄</div>
+      <h3>How It Works</h3>
+      <p>Every 3 bytes of binary input are converted into 4 Base64 characters drawn from a 64-character alphabet (A–Z, a–z, 0–9, +, /). Padding with = is added when input isn't a multiple of 3.</p>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">🔗</div>
+      <h3>URL-safe Variant</h3>
+      <p>Standard Base64 uses + and / which have special meaning in URLs. The URL-safe variant replaces them with - and _ so the output can be used safely in URLs and filenames.</p>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">📐</div>
+      <h3>Size Overhead</h3>
+      <p>Base64 increases the data size by approximately 33%. Every 3 bytes of input produce 4 bytes of output, making it a trade-off between binary transport and text compatibility.</p>
+    </div>
+    <div class="info-card">
+      <div class="info-icon">💡</div>
+      <h3>Common Use Cases</h3>
+      <p>Embedding images in CSS or HTML (data URIs), encoding binary data in JSON payloads, storing credentials in HTTP Basic Auth headers, and encoding email attachments.</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">Copied to clipboard</div>
+
+<footer>
+  <p>© 2025 <a href="#">QuickDev</a> — All tools run client-side. Nothing is uploaded to a server.</p>
+  <p><a href="#">What's New →</a></p>
+</footer>
+
+<script>
+  let mode = 'encode';
+  let variant = 'standard';
+  let wrapWidth = 'none';
+
+  // ── ENCODE ──────────────────────────────────────────────────
+  function encodeB64(text) {
+    try {
+      const bytes = new TextEncoder().encode(text);
+      let binary = '';
+      bytes.forEach(b => binary += String.fromCharCode(b));
+      let result = btoa(binary);
+      if (variant === 'urlsafe') {
+        result = result.replace(/\+/g, '-').replace(/\//g, '_');
+      }
+      if (wrapWidth !== 'none') {
+        const w = parseInt(wrapWidth);
+        result = result.match(new RegExp(`.{1,${w}}`, 'g')).join('\n');
+      }
+      return { ok: true, value: result };
+    } catch(e) {
+      return { ok: false, error: e.message };
+    }
+  }
+
+  // ── DECODE ──────────────────────────────────────────────────
+  function decodeB64(b64) {
+    try {
+      let clean = b64.replace(/\s/g, '');
+      if (variant === 'urlsafe') {
+        clean = clean.replace(/-/g, '+').replace(/_/g, '/');
+      }
+      // Pad if needed
+      while (clean.length % 4) clean += '=';
+      const binary = atob(clean);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      return { ok: true, value: new TextDecoder().decode(bytes) };
+    } catch(e) {
+      return { ok: false, error: 'Invalid Base64 input. Please check the string and try again.' };
+    }
+  }
+
+  // ── PROCESS ──────────────────────────────────────────────────
+  function processLive() { processNow(); }
+
+  function processNow() {
+    if (mode === 'encode') {
+      const input = document.getElementById('enc-input').value;
+      const errBanner = document.getElementById('enc-error');
+      const stats = document.getElementById('enc-stats');
+
+      if (!input.trim()) {
+        document.getElementById('enc-output').value = '';
+        errBanner.classList.remove('show');
+        stats.style.display = 'none';
+        return;
+      }
+
+      const result = encodeB64(input);
+      if (result.ok) {
+        document.getElementById('enc-output').value = result.value;
+        errBanner.classList.remove('show');
+        // stats
+        const inLen = input.length;
+        const outLen = result.value.replace(/\n/g,'').length;
+        document.getElementById('enc-in-chars').textContent = inLen.toLocaleString();
+        document.getElementById('enc-out-chars').textContent = outLen.toLocaleString();
+        document.getElementById('enc-ratio').textContent = ((outLen/inLen)*100).toFixed(0)+'%';
+        const lines = result.value.split('\n').length;
+        document.getElementById('enc-lines').textContent = lines;
+        stats.style.display = 'flex';
+      } else {
+        document.getElementById('enc-error-msg').textContent = result.error;
+        errBanner.classList.add('show');
+        stats.style.display = 'none';
+      }
+    } else {
+      const input = document.getElementById('dec-input').value;
+      const errBanner = document.getElementById('dec-error');
+      const stats = document.getElementById('dec-stats');
+
+      if (!input.trim()) {
+        document.getElementById('dec-output').value = '';
+        errBanner.classList.remove('show');
+        stats.style.display = 'none';
+        return;
+      }
+
+      const result = decodeB64(input);
+      if (result.ok) {
+        document.getElementById('dec-output').value = result.value;
+        errBanner.classList.remove('show');
+        const inLen = input.replace(/\s/g,'').length;
+        const outLen = result.value.length;
+        document.getElementById('dec-in-chars').textContent = inLen.toLocaleString();
+        document.getElementById('dec-out-chars').textContent = outLen.toLocaleString();
+        document.getElementById('dec-ratio').textContent = ((outLen/inLen)*100).toFixed(0)+'%';
+        document.getElementById('dec-valid').textContent = '✓ Yes';
+        stats.style.display = 'flex';
+      } else {
+        document.getElementById('dec-error-msg').textContent = result.error;
+        errBanner.classList.add('show');
+        document.getElementById('dec-output').value = '';
+        stats.style.display = 'none';
+      }
+    }
+  }
+
+  // ── UI CONTROLS ──────────────────────────────────────────────
+  function switchMode(m) {
+    mode = m;
+    document.getElementById('panel-encode').classList.toggle('active', m === 'encode');
+    document.getElementById('panel-decode').classList.toggle('active', m === 'decode');
+    document.getElementById('tab-encode').classList.toggle('active', m === 'encode');
+    document.getElementById('tab-decode').classList.toggle('active', m === 'decode');
+  }
+
+  function swapMode() {
+    switchMode(mode === 'encode' ? 'decode' : 'encode');
+  }
+
+  function setVariant(v) {
+    variant = v;
+    document.getElementById('tb-standard').classList.toggle('on', v === 'standard');
+    document.getElementById('tb-urlsafe').classList.toggle('on', v === 'urlsafe');
+    processLive();
+  }
+
+  function setWrap(w) {
+    wrapWidth = w;
+    ['none','76','64'].forEach(id => {
+      document.getElementById('tw-'+id).classList.toggle('on', id === w);
+    });
+    processLive();
+  }
+
+  async function pasteInput(m) {
+    try {
+      const text = await navigator.clipboard.readText();
+      document.getElementById(m === 'encode' ? 'enc-input' : 'dec-input').value = text;
+      processLive();
+    } catch(e) {
+      showToast('Paste failed — try Ctrl+V');
+    }
+  }
+
+  function clearInput(m) {
+    document.getElementById(m === 'encode' ? 'enc-input' : 'dec-input').value = '';
+    processLive();
+  }
+
+  function clearAll(m) {
+    document.getElementById(m === 'encode' ? 'enc-input' : 'dec-input').value = '';
+    document.getElementById(m === 'encode' ? 'enc-output' : 'dec-output').value = '';
+    document.getElementById(m === 'encode' ? 'enc-stats' : 'dec-stats').style.display = 'none';
+    document.getElementById(m === 'encode' ? 'enc-error' : 'dec-error').classList.remove('show');
+  }
+
+  async function copyOutput(m) {
+    const val = document.getElementById(m === 'encode' ? 'enc-output' : 'dec-output').value;
+    if (!val) return;
+    try {
+      await navigator.clipboard.writeText(val);
+      showToast('Copied to clipboard');
+      const btn = document.getElementById(m === 'encode' ? 'copy-enc-btn' : 'copy-dec-btn');
+      btn.textContent = 'Copied!';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 1800);
+    } catch(e) {
+      showToast('Copy failed');
+    }
+  }
+
+  function downloadOutput(m) {
+    const val = document.getElementById(m === 'encode' ? 'enc-output' : 'dec-output').value;
+    if (!val) return;
+    const blob = new Blob([val], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = m === 'encode' ? 'encoded.b64' : 'decoded.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('File downloaded');
+  }
+
+  let toastTimer;
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), 2000);
+  }
+</script>
+</body>
+</html>
