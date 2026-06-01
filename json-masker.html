@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Masker — QuickDev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --surface: #131720;
+    --surface2: #1a2030;
+    --border: #242c3d;
+    --text: #e8edf5;
+    --muted: #6b7a99;
+    --accent-dev: #4fffb0;
+    --accent-img: #ff8c42;
+    --accent-pdf: #7b8fff;
+    --glow-dev: rgba(79,255,176,0.15);
+    --glow-img: rgba(255,140,66,0.15);
+    --glow-pdf: rgba(123,143,255,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.4;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.4; pointer-events: none; z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0; z-index: 10;
+    padding: 0 clamp(20px, 5vw, 80px);
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,14,20,0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.25rem; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--text); text-decoration: none;
+  }
+  .logo span { color: var(--accent-dev); }
+
+  nav { display: flex; gap: 8px; align-items: center; }
+  nav a {
+    font-size: 0.8rem; font-weight: 500; color: var(--muted);
+    text-decoration: none; padding: 6px 14px; border-radius: 6px;
+    letter-spacing: 0.03em; text-transform: uppercase;
+    transition: color 0.2s, background 0.2s;
+  }
+  nav a:hover { color: var(--text); background: var(--surface2); }
+  nav a.active { color: var(--accent-dev); background: rgba(79,255,176,0.08); }
+
+  .badge-new {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.72rem; font-family: 'DM Mono', monospace;
+    background: rgba(79,255,176,0.1); color: var(--accent-dev);
+    border: 1px solid rgba(79,255,176,0.3);
+    padding: 5px 12px; border-radius: 100px; text-decoration: none;
+    transition: background 0.2s;
+  }
+  .badge-new::before { content: '●'; font-size: 0.5rem; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .badge-new:hover { background: rgba(79,255,176,0.2); }
+
+  /* ── BREADCRUMB ── */
+  .breadcrumb {
+    position: relative; z-index: 5;
+    padding: 20px clamp(20px, 5vw, 80px) 0;
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem; color: var(--muted);
+    opacity: 0; animation: fadeUp 0.5s 0.1s forwards;
+  }
+  .breadcrumb a { color: var(--muted); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--accent-dev); }
+  .breadcrumb span { color: var(--border); }
+
+  /* ── TOOL HERO ── */
+  .tool-hero {
+    position: relative; z-index: 5;
+    padding: clamp(32px, 5vh, 56px) clamp(20px, 5vw, 80px) clamp(24px, 4vh, 40px);
+    max-width: 1200px; margin: 0 auto;
+  }
+
+  .tool-hero-inner {
+    display: flex; align-items: flex-start; gap: 24px;
+    opacity: 0; animation: fadeUp 0.6s 0.2s forwards;
+  }
+
+  .tool-hero-icon {
+    width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0;
+    background: rgba(79,255,176,0.1);
+    border: 1px solid rgba(79,255,176,0.2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.5rem;
+  }
+
+  .tool-hero-text h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 700; letter-spacing: -0.03em; line-height: 1.1;
+    margin-bottom: 10px;
+  }
+  .tool-hero-text h1 em {
+    font-style: italic; font-weight: 300;
+    background: linear-gradient(135deg, var(--accent-dev), #00d4ff);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .tool-hero-text p {
+    font-size: 0.95rem; color: var(--muted); line-height: 1.6; max-width: 560px;
+  }
+
+  .tool-tags {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px;
+    opacity: 0; animation: fadeUp 0.6s 0.35s forwards;
+  }
+  .tool-tag {
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    padding: 4px 10px; border-radius: 100px;
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+  }
+  .tool-tag.green { background: rgba(79,255,176,0.08); border-color: rgba(79,255,176,0.2); color: var(--accent-dev); }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(16px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .tool-layout {
+    position: relative; z-index: 5;
+    max-width: 1200px; margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 80px) 80px;
+    display: grid; grid-template-columns: 1fr 320px; gap: 24px;
+    opacity: 0; animation: fadeUp 0.7s 0.45s forwards;
+  }
+
+  /* ── PANELS ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden;
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px;
+  }
+
+  .panel-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .panel-actions { display: flex; gap: 8px; align-items: center; }
+
+  .btn {
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.8rem; font-weight: 700; letter-spacing: 0.01em;
+    padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text);
+    cursor: pointer; transition: all 0.18s; white-space: nowrap;
+  }
+  .btn:hover { background: #222b40; border-color: #3a4560; }
+  .btn:active { transform: scale(0.97); }
+
+  .btn-primary {
+    background: var(--accent-dev); color: #0b0e14;
+    border-color: var(--accent-dev);
+  }
+  .btn-primary:hover { background: #3de89e; border-color: #3de89e; box-shadow: 0 0 20px rgba(79,255,176,0.3); }
+
+  .btn-ghost {
+    background: transparent; border-color: transparent;
+    color: var(--muted); padding: 7px 10px;
+    font-size: 0.75rem;
+  }
+  .btn-ghost:hover { color: var(--text); background: var(--surface2); border-color: var(--border); }
+
+  .btn-sm { padding: 5px 12px; font-size: 0.75rem; }
+
+  /* ── EDITORS ── */
+  .editor-area {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0;
+  }
+
+  .editor-pane { display: flex; flex-direction: column; }
+  .editor-pane:first-child { border-right: 1px solid var(--border); }
+
+  .editor-pane-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(255,255,255,0.015);
+  }
+  .editor-pane-title {
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted);
+  }
+
+  textarea {
+    flex: 1; width: 100%;
+    background: transparent; border: none; outline: none; resize: none;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.82rem;
+    line-height: 1.65; padding: 16px;
+    min-height: 420px;
+  }
+  textarea::placeholder { color: #3a4560; }
+  textarea:focus { background: rgba(255,255,255,0.01); }
+
+  .output-area {
+    flex: 1; padding: 16px;
+    font-family: 'DM Mono', monospace; font-size: 0.82rem;
+    line-height: 1.65; color: var(--text);
+    min-height: 420px;
+    overflow-y: auto;
+    white-space: pre-wrap; word-break: break-word;
+  }
+
+  /* output syntax coloring */
+  .out-key    { color: #7b8fff; }
+  .out-masked { color: #ff8c42; }
+  .out-string { color: var(--accent-dev); }
+  .out-number { color: #ff8c42; }
+  .out-bool   { color: #f97aff; }
+  .out-null   { color: var(--muted); }
+  .out-punct  { color: #4a5578; }
+
+  /* ── STATUS BAR ── */
+  .status-bar {
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    background: rgba(255,255,255,0.015);
+    flex-wrap: wrap;
+  }
+  .status-chip {
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    padding: 3px 10px; border-radius: 100px;
+  }
+  .chip-ok    { background: rgba(79,255,176,0.1); color: var(--accent-dev); border: 1px solid rgba(79,255,176,0.2); }
+  .chip-err   { background: rgba(255,80,80,0.1);  color: #ff5050; border: 1px solid rgba(255,80,80,0.2); }
+  .chip-idle  { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+  .status-text { font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--muted); flex: 1; }
+  .masked-count { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 0.7rem; color: var(--accent-dev); }
+
+  /* ── SETTINGS SIDEBAR ── */
+  .sidebar { display: flex; flex-direction: column; gap: 16px; }
+
+  .settings-panel { display: flex; flex-direction: column; }
+
+  .settings-body { padding: 16px; display: flex; flex-direction: column; gap: 18px; }
+
+  .setting-group { display: flex; flex-direction: column; gap: 8px; }
+
+  .setting-label {
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted);
+  }
+
+  .setting-sublabel {
+    font-size: 0.72rem; color: #4a5578; margin-top: -4px;
+  }
+
+  .keys-input {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
+    color: var(--text); font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    resize: vertical; min-height: 90px; outline: none;
+    transition: border-color 0.2s; line-height: 1.6;
+  }
+  .keys-input:focus { border-color: rgba(79,255,176,0.4); }
+  .keys-input::placeholder { color: #3a4560; }
+
+  .preset-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+  .preset-pill {
+    font-family: 'DM Mono', monospace; font-size: 0.65rem;
+    padding: 4px 10px; border-radius: 100px; cursor: pointer;
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    transition: all 0.15s;
+  }
+  .preset-pill:hover { color: var(--text); border-color: #3a4560; }
+  .preset-pill.active { background: rgba(79,255,176,0.1); color: var(--accent-dev); border-color: rgba(79,255,176,0.3); }
+
+  /* toggle */
+  .toggle-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  .toggle-info { display: flex; flex-direction: column; gap: 2px; }
+  .toggle-name { font-size: 0.82rem; font-weight: 500; }
+  .toggle-desc { font-size: 0.72rem; color: var(--muted); }
+
+  .toggle {
+    position: relative; width: 40px; height: 22px; flex-shrink: 0;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-track {
+    position: absolute; inset: 0;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 100px; cursor: pointer; transition: all 0.2s;
+  }
+  .toggle-track::after {
+    content: ''; position: absolute; top: 3px; left: 3px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--muted); transition: transform 0.2s, background 0.2s;
+  }
+  .toggle input:checked + .toggle-track { background: rgba(79,255,176,0.15); border-color: rgba(79,255,176,0.4); }
+  .toggle input:checked + .toggle-track::after { transform: translateX(18px); background: var(--accent-dev); }
+
+  /* radio group */
+  .radio-group { display: flex; flex-direction: column; gap: 6px; }
+  .radio-option {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--bg);
+    transition: all 0.15s;
+  }
+  .radio-option:hover { border-color: #3a4560; background: var(--surface2); }
+  .radio-option.selected { border-color: rgba(79,255,176,0.35); background: rgba(79,255,176,0.06); }
+  .radio-dot {
+    width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+    border: 2px solid var(--border); background: transparent; transition: all 0.15s;
+  }
+  .radio-option.selected .radio-dot { border-color: var(--accent-dev); background: var(--accent-dev); box-shadow: 0 0 6px rgba(79,255,176,0.5); }
+  .radio-text { font-size: 0.82rem; font-weight: 500; }
+  .radio-sub  { font-size: 0.72rem; color: var(--muted); }
+
+  /* char input */
+  .char-input-wrap { position: relative; }
+  .char-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 9px 12px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.82rem; outline: none;
+    transition: border-color 0.2s;
+  }
+  .char-input:focus { border-color: rgba(79,255,176,0.4); }
+
+  /* partial reveal */
+  .partial-row { display: flex; gap: 8px; align-items: center; }
+  .partial-input {
+    width: 60px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 10px; color: var(--text);
+    font-family: 'DM Mono', monospace; font-size: 0.82rem; outline: none; text-align: center;
+    transition: border-color 0.2s;
+  }
+  .partial-input:focus { border-color: rgba(79,255,176,0.4); }
+  .partial-sep { color: var(--muted); font-size: 0.78rem; }
+
+  /* ── DIVIDER IN SIDEBAR ── */
+  .sidebar-divider {
+    height: 1px; background: var(--border); margin: 4px 0;
+  }
+
+  /* ── STATS PANEL ── */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); }
+  .stat-cell {
+    background: var(--surface); padding: 14px 16px;
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .stat-cell:first-child { border-radius: 0 0 0 0; }
+  .stat-val {
+    font-family: 'Fraunces', serif; font-size: 1.6rem; font-weight: 700;
+    line-height: 1; color: var(--accent-dev);
+  }
+  .stat-cell:nth-child(2) .stat-val { color: var(--accent-img); }
+  .stat-lbl { font-family: 'DM Mono', monospace; font-size: 0.65rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+
+  /* ── EXAMPLE BUTTON STRIP ── */
+  .example-strip {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    padding: 12px 16px; border-bottom: 1px solid var(--border);
+  }
+  .example-btn {
+    font-family: 'DM Mono', monospace; font-size: 0.68rem;
+    padding: 4px 10px; border-radius: 6px; cursor: pointer;
+    background: var(--surface2); border: 1px solid var(--border); color: var(--muted);
+    transition: all 0.15s;
+  }
+  .example-btn:hover { color: var(--accent-dev); border-color: rgba(79,255,176,0.3); background: rgba(79,255,176,0.05); }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 12px; height: 100%; padding: 40px 20px; text-align: center;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 2rem; opacity: 0.4; }
+  .empty-label { font-family: 'DM Mono', monospace; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative; z-index: 5;
+    border-top: 1px solid var(--border);
+    padding: 32px clamp(20px, 5vw, 80px);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 16px;
+  }
+  footer p { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--muted); }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent-dev); }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed; bottom: 32px; right: 32px; z-index: 100;
+    background: var(--surface); border: 1px solid rgba(79,255,176,0.3);
+    padding: 12px 20px; border-radius: 10px;
+    font-family: 'DM Mono', monospace; font-size: 0.78rem; color: var(--accent-dev);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(80px); opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .tool-layout { grid-template-columns: 1fr; }
+    .sidebar { order: -1; }
+    .editor-area { grid-template-columns: 1fr; }
+    .editor-pane:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+  @media (max-width: 640px) {
+    nav a { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#">Quick<span>Dev</span></a>
+  <nav>
+    <a href="#">Dev</a>
+    <a href="#">Images</a>
+    <a href="#">PDF</a>
+    <a class="badge-new" href="#">What's New &nbsp;7</a>
+  </nav>
+</header>
+
+<!-- BREADCRUMB -->
+<div class="breadcrumb">
+  <a href="#">Home</a>
+  <span>/</span>
+  <a href="#">Dev Tools</a>
+  <span>/</span>
+  <span style="color: var(--accent-dev)">JSON Masker</span>
+</div>
+
+<!-- TOOL HERO -->
+<div class="tool-hero">
+  <div class="tool-hero-inner">
+    <div class="tool-hero-icon">🔒</div>
+    <div class="tool-hero-text">
+      <h1>JSON <em>Masker</em></h1>
+      <p>Redact sensitive fields — passwords, tokens, emails, PII — from any JSON payload. 100% client-side. Nothing leaves your browser.</p>
+    </div>
+  </div>
+  <div class="tool-tags">
+    <span class="tool-tag green">● Client-side only</span>
+    <span class="tool-tag">Free forever</span>
+    <span class="tool-tag">PII redaction</span>
+    <span class="tool-tag">Auto-detect keys</span>
+    <span class="tool-tag">Custom patterns</span>
+  </div>
+</div>
+
+<!-- MAIN TOOL LAYOUT -->
+<div class="tool-layout">
+
+  <!-- LEFT: EDITOR + OUTPUT -->
+  <div class="panel">
+    <!-- Top toolbar -->
+    <div class="panel-header">
+      <span class="panel-title">JSON Masker</span>
+      <div class="panel-actions">
+        <button class="btn btn-ghost btn-sm" id="btnClear">Clear</button>
+        <button class="btn btn-ghost btn-sm" id="btnCopy">Copy Output</button>
+        <button class="btn btn-primary" id="btnMask">Mask JSON →</button>
+      </div>
+    </div>
+
+    <!-- Example presets -->
+    <div class="example-strip">
+      <span style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);align-self:center;margin-right:4px;">Examples:</span>
+      <button class="example-btn" data-example="user">User object</button>
+      <button class="example-btn" data-example="payment">Payment</button>
+      <button class="example-btn" data-example="auth">Auth token</button>
+      <button class="example-btn" data-example="nested">Nested PII</button>
+    </div>
+
+    <!-- Split editors -->
+    <div class="editor-area">
+      <div class="editor-pane">
+        <div class="editor-pane-header">
+          <span class="editor-pane-title">Input JSON</span>
+          <button class="btn btn-ghost btn-sm" id="btnFormat">Format</button>
+        </div>
+        <textarea id="inputJson" placeholder='{"email":"user@example.com","password":"s3cr3t","name":"Alice"}'></textarea>
+      </div>
+      <div class="editor-pane">
+        <div class="editor-pane-header">
+          <span class="editor-pane-title">Masked Output</span>
+          <span id="maskCount" style="font-family:'DM Mono',monospace;font-size:0.65rem;color:var(--muted);">—</span>
+        </div>
+        <div id="outputArea" class="output-area">
+          <div class="empty-state">
+            <div class="empty-icon">🔒</div>
+            <div class="empty-label">Output appears here</div>
+            <div style="font-size:0.78rem;">Paste JSON on the left and click Mask JSON →</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Status bar -->
+    <div class="status-bar">
+      <span class="status-chip chip-idle" id="statusChip">Idle</span>
+      <span class="status-text" id="statusText">Paste your JSON and configure keys to mask.</span>
+      <span class="masked-count" id="maskedCountBar"></span>
+    </div>
+  </div>
+
+  <!-- RIGHT: SETTINGS SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- Keys to mask -->
+    <div class="panel settings-panel">
+      <div class="panel-header">
+        <span class="panel-title">Keys to Mask</span>
+        <button class="btn btn-ghost btn-sm" id="btnAutoDetect">Auto-detect</button>
+      </div>
+      <div class="settings-body">
+        <div class="setting-group">
+          <span class="setting-label">Sensitive keys</span>
+          <span class="setting-sublabel">Comma or newline separated, case-insensitive</span>
+          <textarea class="keys-input" id="keysInput" placeholder="password, token, email, secret, apiKey, ssn, creditCard">password, token, secret, apiKey, accessToken, email, ssn, creditCard, cvv, pin</textarea>
+        </div>
+
+        <div class="setting-group">
+          <span class="setting-label">Common presets</span>
+          <div class="preset-pills">
+            <span class="preset-pill active" data-preset="auth">Auth</span>
+            <span class="preset-pill active" data-preset="pii">PII</span>
+            <span class="preset-pill" data-preset="finance">Finance</span>
+            <span class="preset-pill" data-preset="infra">Infra</span>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <span class="toggle-name">Mask all values</span>
+              <span class="toggle-desc">Redact even unknown keys</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggleMaskAll">
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <span class="toggle-name">Recursive masking</span>
+              <span class="toggle-desc">Mask nested objects too</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="toggleRecursive" checked>
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <div class="toggle-row">
+            <div class="toggle-info">
+              <span class="toggle-name">Pattern detection</span>
+              <span class="toggle-desc">Auto-detect emails, phone numbers in values</span>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" id="togglePatterns" checked>
+              <span class="toggle-track"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mask style -->
+    <div class="panel settings-panel">
+      <div class="panel-header">
+        <span class="panel-title">Mask Style</span>
+      </div>
+      <div class="settings-body">
+        <div class="setting-group">
+          <span class="setting-label">Mode</span>
+          <div class="radio-group" id="maskModeGroup">
+            <div class="radio-option selected" data-mode="full">
+              <div class="radio-dot"></div>
+              <div>
+                <div class="radio-text">Full mask</div>
+                <div class="radio-sub">Replaces entire value — <code style="color:var(--accent-dev)">••••••••</code></div>
+              </div>
+            </div>
+            <div class="radio-option" data-mode="preserve-length">
+              <div class="radio-dot"></div>
+              <div>
+                <div class="radio-text">Preserve length</div>
+                <div class="radio-sub">Same number of chars — <code style="color:var(--accent-dev)">••••••••••</code></div>
+              </div>
+            </div>
+            <div class="radio-option" data-mode="partial">
+              <div class="radio-dot"></div>
+              <div>
+                <div class="radio-text">Partial reveal</div>
+                <div class="radio-sub">Show first/last N chars — <code style="color:var(--accent-dev)">ab••••yz</code></div>
+              </div>
+            </div>
+            <div class="radio-option" data-mode="remove">
+              <div class="radio-dot"></div>
+              <div>
+                <div class="radio-text">Remove key</div>
+                <div class="radio-sub">Strip key+value entirely</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="setting-group" id="partialRevealGroup" style="display:none;">
+          <span class="setting-label">Reveal characters</span>
+          <div class="partial-row">
+            <input class="partial-input" id="revealFirst" type="number" value="2" min="0" max="10" placeholder="2">
+            <span class="partial-sep">first</span>
+            <span class="partial-sep">/</span>
+            <input class="partial-input" id="revealLast" type="number" value="2" min="0" max="10" placeholder="2">
+            <span class="partial-sep">last</span>
+          </div>
+        </div>
+
+        <div class="setting-group">
+          <span class="setting-label">Mask character</span>
+          <input class="char-input" id="maskChar" type="text" maxlength="2" value="•" placeholder="•">
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="panel" style="overflow:hidden;">
+      <div class="panel-header">
+        <span class="panel-title">Stats</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-cell"><div class="stat-val" id="statTotal">—</div><div class="stat-lbl">Total fields</div></div>
+        <div class="stat-cell"><div class="stat-val" id="statMasked">—</div><div class="stat-lbl">Masked</div></div>
+        <div class="stat-cell"><div class="stat-val" id="statDepth">—</div><div class="stat-lbl">Max depth</div></div>
+        <div class="stat-cell"><div class="stat-val" id="statSize">—</div><div class="stat-lbl">Input size</div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2025 <a href="#">QuickDev</a> — All tools run client-side. Nothing is uploaded to a server.</p>
+  <p><a href="#">What's New →</a></p>
+</footer>
+
+<script>
+// ─────────────────────────────────────────────
+//  DATA
+// ─────────────────────────────────────────────
+const PRESETS = {
+  auth:    ['password','passwd','secret','token','accessToken','refreshToken','apiKey','api_key','clientSecret','privateKey','authToken','bearerToken','jwt','sessionToken'],
+  pii:     ['email','phone','phoneNumber','mobile','ssn','dob','dateOfBirth','firstName','lastName','fullName','address','zipCode','postalCode','nationalId'],
+  finance: ['creditCard','cardNumber','cvv','pin','accountNumber','routingNumber','iban','swift','bankAccount'],
+  infra:   ['host','ip','internalUrl','dbPassword','connectionString','encryptionKey','awsKey','awsSecret'],
+};
+
+const EXAMPLES = {
+  user: JSON.stringify({
+    id: "u_8821",
+    name: "Alice Johnson",
+    email: "alice@example.com",
+    phone: "+1-555-867-5309",
+    password: "hunter2secure!",
+    role: "admin",
+    createdAt: "2024-01-15T10:22:00Z"
+  }, null, 2),
+
+  payment: JSON.stringify({
+    orderId: "ord_99182",
+    amount: 149.99,
+    currency: "USD",
+    customer: {
+      name: "Bob Smith",
+      email: "bob@corp.io",
+      phone: "555-123-4567"
+    },
+    card: {
+      cardNumber: "4111111111111111",
+      cvv: "421",
+      expiry: "12/27",
+      holderName: "BOB SMITH"
+    },
+    status: "approved"
+  }, null, 2),
+
+  auth: JSON.stringify({
+    accessToken: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJ1X...",
+    refreshToken: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4gZm9yIHRlc3Rpbmc=",
+    apiKey: "sk-prod-a8f2b3c4d5e6f7a8b9c0d1e2f3a4b5c6",
+    expiresIn: 3600,
+    scope: "read write admin",
+    userId: "u_8821"
+  }, null, 2),
+
+  nested: JSON.stringify({
+    user: {
+      profile: {
+        email: "nested@example.com",
+        ssn: "123-45-6789",
+        address: {
+          street: "123 Main St",
+          city: "Springfield",
+          zip: "62701"
+        }
+      },
+      auth: {
+        password: "P@ssw0rd!",
+        mfaSecret: "JBSWY3DPEHPK3PXP",
+        sessions: [
+          { token: "sess_aaa111", ip: "192.168.1.1" },
+          { token: "sess_bbb222", ip: "10.0.0.5" }
+        ]
+      }
+    },
+    meta: { version: "2.1", env: "production" }
+  }, null, 2)
+};
+
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+let maskMode = 'full';
+let activePresets = new Set(['auth', 'pii']);
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function getKeys() {
+  return document.getElementById('keysInput').value
+    .split(/[\n,]+/)
+    .map(s => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function getMaskChar() {
+  return document.getElementById('maskChar').value || '•';
+}
+
+function maskValue(val, mode, char, first, last) {
+  if (val === null || val === undefined) return val;
+  const s = String(val);
+  if (mode === 'full') return char.repeat(8);
+  if (mode === 'preserve-length') return char.repeat(s.length || 1);
+  if (mode === 'partial') {
+    const f = parseInt(first) || 0;
+    const l = parseInt(last) || 0;
+    if (s.length <= f + l) return char.repeat(s.length);
+    return s.slice(0, f) + char.repeat(s.length - f - l) + s.slice(s.length - l);
+  }
+  if (mode === 'remove') return '__REMOVE__';
+  return char.repeat(8);
+}
+
+// pattern-based detection in string values
+const VALUE_PATTERNS = [
+  { name: 'email',   re: /\b[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}\b/g },
+  { name: 'phone',   re: /\b(\+?1[\s\-]?)?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4}\b/g },
+  { name: 'cc',      re: /\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13})\b/g },
+];
+
+function maskStringPatterns(s, char) {
+  let out = s;
+  for (const p of VALUE_PATTERNS) {
+    out = out.replace(p.re, m => char.repeat(m.length));
+  }
+  return out;
+}
+
+function getMaxDepth(obj, depth = 0) {
+  if (typeof obj !== 'object' || obj === null) return depth;
+  if (Array.isArray(obj)) return Math.max(...obj.map(v => getMaxDepth(v, depth + 1)), depth);
+  return Math.max(...Object.values(obj).map(v => getMaxDepth(v, depth + 1)), depth);
+}
+
+function countFields(obj) {
+  if (typeof obj !== 'object' || obj === null) return 0;
+  if (Array.isArray(obj)) return obj.reduce((a, v) => a + countFields(v), 0);
+  return Object.keys(obj).length + Object.values(obj).reduce((a, v) => a + countFields(v), 0);
+}
+
+// ─────────────────────────────────────────────
+//  CORE MASK LOGIC
+// ─────────────────────────────────────────────
+function maskJson(obj, keys, mode, char, revFirst, revLast, recursive, maskAll, usePatterns) {
+  let maskedCount = 0;
+
+  function process(node, depth) {
+    if (Array.isArray(node)) {
+      return node
+        .map(v => process(v, depth + 1))
+        .filter(v => v !== '__REMOVE__');
+    }
+    if (typeof node === 'object' && node !== null) {
+      const out = {};
+      for (const [k, v] of Object.entries(node)) {
+        const keyLower = k.toLowerCase();
+        const shouldMask = maskAll || keys.includes(keyLower);
+
+        if (shouldMask) {
+          maskedCount++;
+          if (mode === 'remove') continue; // skip key entirely
+          if (typeof v === 'object' && v !== null && recursive) {
+            out[k] = '[REDACTED]';
+          } else {
+            const masked = maskValue(typeof v === 'number' ? String(v) : v, mode, char, revFirst, revLast);
+            out[k] = masked;
+          }
+        } else if (recursive && typeof v === 'object' && v !== null) {
+          out[k] = process(v, depth + 1);
+        } else if (typeof v === 'string' && usePatterns) {
+          const patternMasked = maskStringPatterns(v, char);
+          if (patternMasked !== v) maskedCount++;
+          out[k] = patternMasked;
+        } else {
+          out[k] = v;
+        }
+      }
+      return out;
+    }
+    return node;
+  }
+
+  const result = process(obj, 0);
+  return { result, maskedCount };
+}
+
+// ─────────────────────────────────────────────
+//  SYNTAX-HIGHLIGHT OUTPUT
+// ─────────────────────────────────────────────
+function highlight(json) {
+  return json
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, match => {
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) return `<span class="out-key">${match}</span>`;
+        // check if it's a masked value (all same char)
+        const inner = match.slice(1,-1);
+        if (/^[•*_\-x]+$/.test(inner) || inner === '[REDACTED]') return `<span class="out-masked">${match}</span>`;
+        return `<span class="out-string">${match}</span>`;
+      }
+      if (/true|false/.test(match)) return `<span class="out-bool">${match}</span>`;
+      if (/null/.test(match)) return `<span class="out-null">${match}</span>`;
+      return `<span class="out-number">${match}</span>`;
+    });
+}
+
+// ─────────────────────────────────────────────
+//  MAIN: RUN MASK
+// ─────────────────────────────────────────────
+function runMask() {
+  const raw = document.getElementById('inputJson').value.trim();
+  const outputArea = document.getElementById('outputArea');
+  const statusChip = document.getElementById('statusChip');
+  const statusText = document.getElementById('statusText');
+  const maskedCountBar = document.getElementById('maskedCountBar');
+
+  if (!raw) {
+    setStatus('idle', 'Paste your JSON on the left to get started.');
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    setStatus('err', 'Invalid JSON: ' + e.message);
+    outputArea.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-label">Invalid JSON</div><div style="font-size:0.78rem;color:#ff5050">${e.message}</div></div>`;
+    return;
+  }
+
+  const keys = getKeys();
+  const mode = maskMode;
+  const char = getMaskChar();
+  const revFirst = document.getElementById('revealFirst').value;
+  const revLast = document.getElementById('revealLast').value;
+  const recursive = document.getElementById('toggleRecursive').checked;
+  const maskAll = document.getElementById('toggleMaskAll').checked;
+  const usePatterns = document.getElementById('togglePatterns').checked;
+
+  const { result, maskedCount } = maskJson(parsed, keys, mode, char, revFirst, revLast, recursive, maskAll, usePatterns);
+  const outputStr = JSON.stringify(result, null, 2);
+
+  outputArea.innerHTML = `<code>${highlight(outputStr)}</code>`;
+
+  // stats
+  const total = countFields(parsed);
+  const depth = getMaxDepth(parsed);
+  const size = (new TextEncoder().encode(raw).length / 1024).toFixed(1);
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statMasked').textContent = maskedCount;
+  document.getElementById('statDepth').textContent = depth;
+  document.getElementById('statSize').textContent = size + 'k';
+  document.getElementById('maskCount').textContent = maskedCount + ' masked';
+  maskedCountBar.textContent = maskedCount > 0 ? `${maskedCount} field${maskedCount > 1 ? 's' : ''} redacted` : '';
+
+  setStatus('ok', `Masked ${maskedCount} field${maskedCount !== 1 ? 's' : ''} — output ready.`);
+}
+
+function setStatus(state, msg) {
+  const chip = document.getElementById('statusChip');
+  const text = document.getElementById('statusText');
+  chip.className = 'status-chip';
+  if (state === 'ok')   { chip.classList.add('chip-ok');   chip.textContent = 'OK'; }
+  if (state === 'err')  { chip.classList.add('chip-err');  chip.textContent = 'Error'; }
+  if (state === 'idle') { chip.classList.add('chip-idle'); chip.textContent = 'Idle'; }
+  text.textContent = msg;
+}
+
+// ─────────────────────────────────────────────
+//  EVENTS
+// ─────────────────────────────────────────────
+document.getElementById('btnMask').addEventListener('click', runMask);
+
+document.getElementById('inputJson').addEventListener('input', () => {
+  // live mask after small delay
+  clearTimeout(window._maskTimer);
+  window._maskTimer = setTimeout(runMask, 600);
+});
+
+document.getElementById('keysInput').addEventListener('input', () => {
+  clearTimeout(window._maskTimer);
+  window._maskTimer = setTimeout(runMask, 400);
+});
+
+// Format
+document.getElementById('btnFormat').addEventListener('click', () => {
+  const ta = document.getElementById('inputJson');
+  try {
+    ta.value = JSON.stringify(JSON.parse(ta.value), null, 2);
+    runMask();
+  } catch { showToast('Invalid JSON — cannot format'); }
+});
+
+// Clear
+document.getElementById('btnClear').addEventListener('click', () => {
+  document.getElementById('inputJson').value = '';
+  document.getElementById('outputArea').innerHTML = `<div class="empty-state"><div class="empty-icon">🔒</div><div class="empty-label">Output appears here</div><div style="font-size:0.78rem;">Paste JSON on the left and click Mask JSON →</div></div>`;
+  setStatus('idle', 'Paste your JSON on the left to get started.');
+  ['statTotal','statMasked','statDepth','statSize'].forEach(id => document.getElementById(id).textContent = '—');
+  document.getElementById('maskCount').textContent = '';
+  document.getElementById('maskedCountBar').textContent = '';
+});
+
+// Copy
+document.getElementById('btnCopy').addEventListener('click', () => {
+  const out = document.getElementById('outputArea').innerText;
+  if (!out || out.includes('Output appears here')) { showToast('Nothing to copy yet'); return; }
+  navigator.clipboard.writeText(out).then(() => showToast('✓ Copied to clipboard'));
+});
+
+// Auto-detect keys from input
+document.getElementById('btnAutoDetect').addEventListener('click', () => {
+  const raw = document.getElementById('inputJson').value.trim();
+  if (!raw) { showToast('Paste JSON first'); return; }
+  try {
+    const obj = JSON.parse(raw);
+    const detected = new Set();
+    function walk(o) {
+      if (Array.isArray(o)) { o.forEach(walk); return; }
+      if (typeof o === 'object' && o !== null) {
+        for (const [k, v] of Object.entries(o)) {
+          const kl = k.toLowerCase();
+          const sensitiveHints = ['pass','secret','token','key','auth','card','cvv','pin','ssn','email','phone','credit','private','session','api'];
+          if (sensitiveHints.some(h => kl.includes(h))) detected.add(k);
+          walk(v);
+        }
+      }
+    }
+    walk(obj);
+    if (detected.size > 0) {
+      document.getElementById('keysInput').value = [...detected].join(', ');
+      showToast(`✓ Detected ${detected.size} sensitive key${detected.size > 1 ? 's' : ''}`);
+      runMask();
+    } else {
+      showToast('No obvious sensitive keys found');
+    }
+  } catch { showToast('Invalid JSON'); }
+});
+
+// Example buttons
+document.querySelectorAll('.example-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const example = EXAMPLES[btn.dataset.example];
+    if (example) {
+      document.getElementById('inputJson').value = example;
+      runMask();
+    }
+  });
+});
+
+// Preset pills
+document.querySelectorAll('.preset-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    const preset = pill.dataset.preset;
+    if (activePresets.has(preset)) {
+      activePresets.delete(preset);
+      pill.classList.remove('active');
+    } else {
+      activePresets.add(preset);
+      pill.classList.add('active');
+    }
+    // merge selected presets into keysInput
+    const allKeys = new Set();
+    activePresets.forEach(p => PRESETS[p].forEach(k => allKeys.add(k)));
+    document.getElementById('keysInput').value = [...allKeys].join(', ');
+    runMask();
+  });
+});
+
+// Mask mode
+document.querySelectorAll('#maskModeGroup .radio-option').forEach(opt => {
+  opt.addEventListener('click', () => {
+    document.querySelectorAll('#maskModeGroup .radio-option').forEach(o => o.classList.remove('selected'));
+    opt.classList.add('selected');
+    maskMode = opt.dataset.mode;
+    const showPartial = maskMode === 'partial';
+    document.getElementById('partialRevealGroup').style.display = showPartial ? 'flex' : 'none';
+    document.getElementById('partialRevealGroup').style.flexDirection = 'column';
+    document.getElementById('partialRevealGroup').style.gap = '8px';
+    runMask();
+  });
+});
+
+// Live re-mask on option changes
+['maskChar','revealFirst','revealLast'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    clearTimeout(window._maskTimer);
+    window._maskTimer = setTimeout(runMask, 300);
+  });
+});
+['toggleMaskAll','toggleRecursive','togglePatterns'].forEach(id => {
+  document.getElementById(id).addEventListener('change', runMask);
+});
+
+// Initial state
+setStatus('idle', 'Paste your JSON on the left to get started.');
+</script>
+</body>
+</html>

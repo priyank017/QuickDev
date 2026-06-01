@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Editor — QuickDev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --surface: #131720;
+    --surface2: #1a2030;
+    --border: #242c3d;
+    --text: #e8edf5;
+    --muted: #6b7a99;
+    --accent-dev: #4fffb0;
+    --accent-img: #ff8c42;
+    --accent-pdf: #7b8fff;
+    --glow-dev: rgba(79,255,176,0.15);
+    --error: #ff5370;
+    --warning: #ffcb6b;
+    --success: #4fffb0;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; height: 100%; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0; opacity: 0.4;
+  }
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.4; pointer-events: none; z-index: 0;
+  }
+
+  /* HEADER */
+  header {
+    z-index: 100;
+    padding: 0 clamp(20px, 5vw, 80px);
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,14,20,0.85);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.25rem; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--text); text-decoration: none;
+  }
+  .logo span { color: var(--accent-dev); }
+
+  .header-right { display: flex; align-items: center; gap: 12px; }
+
+  .breadcrumb {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem; color: var(--muted);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .breadcrumb a { color: var(--muted); text-decoration: none; }
+  .breadcrumb a:hover { color: var(--accent-dev); }
+  .breadcrumb span { opacity: 0.4; }
+  .breadcrumb strong { color: var(--accent-dev); font-weight: 500; }
+
+  nav { display: flex; gap: 8px; align-items: center; }
+  nav a {
+    font-size: 0.8rem; font-weight: 500; color: var(--muted);
+    text-decoration: none; padding: 6px 14px; border-radius: 6px;
+    letter-spacing: 0.03em; text-transform: uppercase;
+    transition: color 0.2s, background 0.2s;
+  }
+  nav a:hover { color: var(--text); background: var(--surface2); }
+
+  /* PAGE WRAPPER */
+  .page {
+    position: relative; z-index: 5;
+    flex: 1; display: flex; flex-direction: column;
+    padding: 24px clamp(20px,4vw,60px) 40px;
+    gap: 20px;
+    max-width: 1600px;
+    margin: 0 auto;
+    width: 100%;
+  }
+
+  /* PAGE TITLE ROW */
+  .page-title-row {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  }
+  .page-icon {
+    width: 42px; height: 42px; border-radius: 11px;
+    background: rgba(79,255,176,0.12);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; border: 1px solid rgba(79,255,176,0.2);
+  }
+  .page-title {
+    font-family: 'Fraunces', serif;
+    font-size: 1.7rem; font-weight: 700;
+    letter-spacing: -0.03em; color: var(--accent-dev);
+  }
+  .page-subtitle {
+    font-size: 0.85rem; color: var(--muted); margin-top: 2px;
+  }
+
+  /* TOOLBAR */
+  .toolbar {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+
+  .toolbar-group {
+    display: flex; gap: 6px; align-items: center;
+    padding-right: 12px;
+    border-right: 1px solid var(--border);
+  }
+  .toolbar-group:last-child { border-right: none; padding-right: 0; }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.8rem; font-weight: 700;
+    padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer; transition: all 0.18s ease;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .btn:hover { border-color: rgba(79,255,176,0.4); color: var(--accent-dev); background: rgba(79,255,176,0.07); }
+  .btn.primary {
+    background: rgba(79,255,176,0.12);
+    border-color: rgba(79,255,176,0.35);
+    color: var(--accent-dev);
+  }
+  .btn.primary:hover { background: rgba(79,255,176,0.22); }
+  .btn.danger { border-color: rgba(255,83,112,0.3); color: var(--error); }
+  .btn.danger:hover { background: rgba(255,83,112,0.1); }
+  .btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+  .select-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem; font-weight: 500;
+    padding: 7px 12px; border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    color: var(--muted);
+    cursor: pointer; transition: all 0.18s;
+    white-space: nowrap;
+  }
+  .select-pill.active { border-color: rgba(79,255,176,0.4); color: var(--accent-dev); background: rgba(79,255,176,0.08); }
+  .select-pill:hover { color: var(--text); }
+
+  /* STATUS BAR */
+  .status-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 8px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+  }
+  .status-item { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.valid { background: var(--success); box-shadow: 0 0 6px rgba(79,255,176,0.5); }
+  .status-dot.error { background: var(--error); box-shadow: 0 0 6px rgba(255,83,112,0.5); }
+  .status-text { color: var(--text); font-weight: 500; }
+  .status-error-msg { color: var(--error); flex: 1; }
+  .status-spacer { flex: 1; }
+
+  /* MAIN EDITOR AREA */
+  .editor-area {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    flex: 1;
+    min-height: 0;
+  }
+
+  .pane {
+    display: flex; flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    min-height: 480px;
+  }
+
+  .pane-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+    flex-shrink: 0;
+  }
+  .pane-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem; font-weight: 500;
+    color: var(--muted);
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .pane-actions { display: flex; gap: 6px; }
+  .pane-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem; font-weight: 500;
+    padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .pane-btn:hover { color: var(--accent-dev); border-color: rgba(79,255,176,0.3); }
+
+  /* CODE EDITOR */
+  .editor-wrapper {
+    position: relative; flex: 1; display: flex; overflow: hidden;
+  }
+  .line-numbers {
+    flex-shrink: 0;
+    padding: 14px 0;
+    background: rgba(0,0,0,0.2);
+    border-right: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--muted);
+    text-align: right;
+    user-select: none;
+    min-width: 44px;
+    overflow: hidden;
+    padding-right: 10px;
+    padding-left: 8px;
+  }
+  .code-input {
+    flex: 1;
+    resize: none;
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 14px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    color: var(--text);
+    width: 100%;
+    tab-size: 2;
+    overflow: auto;
+    white-space: pre;
+  }
+  .code-input::selection { background: rgba(79,255,176,0.2); }
+  .code-input.error-state { color: var(--text); }
+  .code-input::-webkit-scrollbar { width: 6px; height: 6px; }
+  .code-input::-webkit-scrollbar-track { background: transparent; }
+  .code-input::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* TREE VIEW */
+  .tree-view {
+    flex: 1; overflow: auto; padding: 14px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem; line-height: 1.7;
+  }
+  .tree-view::-webkit-scrollbar { width: 6px; }
+  .tree-view::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .tree-node { display: flex; flex-direction: column; }
+  .tree-row {
+    display: flex; align-items: baseline; gap: 6px;
+    cursor: pointer; border-radius: 5px; padding: 1px 4px;
+    transition: background 0.1s;
+  }
+  .tree-row:hover { background: rgba(255,255,255,0.04); }
+  .tree-toggle {
+    color: var(--muted); width: 14px; flex-shrink: 0;
+    font-size: 0.65rem; line-height: 1.7; transition: transform 0.15s;
+    display: inline-block;
+  }
+  .tree-toggle.open { transform: rotate(90deg); }
+  .tree-key { color: #82aaff; }
+  .tree-colon { color: var(--muted); }
+  .tree-string { color: #c3e88d; }
+  .tree-number { color: #f78c6c; }
+  .tree-bool { color: #ff8c42; }
+  .tree-null { color: var(--muted); }
+  .tree-bracket { color: var(--muted); }
+  .tree-children { padding-left: 22px; border-left: 1px solid var(--border); margin-left: 7px; }
+  .tree-children.collapsed { display: none; }
+  .tree-count { font-size: 0.65rem; color: var(--muted); margin-left: 4px; }
+
+  /* EMPTY STATE */
+  .empty-state {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 10px; color: var(--muted); padding: 40px;
+    text-align: center;
+  }
+  .empty-icon { font-size: 2.5rem; opacity: 0.4; }
+  .empty-title { font-family: 'Fraunces', serif; font-size: 1rem; color: var(--text); }
+  .empty-desc { font-size: 0.8rem; line-height: 1.6; max-width: 260px; }
+
+  /* CONVERT TABS */
+  .convert-row {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 10px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  .convert-tab {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem; font-weight: 500;
+    padding: 4px 12px; border-radius: 100px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--muted);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .convert-tab:hover { color: var(--accent-pdf); border-color: rgba(123,143,255,0.4); }
+  .convert-tab.active { background: rgba(123,143,255,0.1); color: var(--accent-pdf); border-color: rgba(123,143,255,0.4); }
+
+  /* TOAST */
+  #toast {
+    position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%) translateY(80px);
+    background: var(--surface2); border: 1px solid var(--border);
+    padding: 10px 20px; border-radius: 100px;
+    font-family: 'DM Mono', monospace; font-size: 0.78rem;
+    color: var(--text); z-index: 9999;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    opacity: 0; pointer-events: none;
+    display: flex; align-items: center; gap: 8px;
+    white-space: nowrap;
+  }
+  #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  #toast .t-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent-dev); }
+
+  /* SAMPLE DROPDOWN */
+  .dropdown { position: relative; }
+  .dropdown-menu {
+    display: none;
+    position: absolute; top: calc(100% + 6px); left: 0;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 6px; z-index: 200;
+    min-width: 180px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.5);
+  }
+  .dropdown.open .dropdown-menu { display: block; }
+  .dropdown-item {
+    display: block; width: 100%;
+    padding: 8px 12px; border-radius: 7px;
+    font-family: 'DM Mono', monospace; font-size: 0.75rem;
+    color: var(--muted); background: transparent; border: none;
+    cursor: pointer; text-align: left; transition: all 0.15s;
+  }
+  .dropdown-item:hover { background: rgba(79,255,176,0.08); color: var(--accent-dev); }
+
+  /* HIDDEN FILE INPUT */
+  #file-input { display: none; }
+
+  footer {
+    position: relative; z-index: 5;
+    border-top: 1px solid var(--border);
+    padding: 20px clamp(20px,5vw,80px);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 12px; flex-shrink: 0;
+  }
+  footer p { font-family: 'DM Mono', monospace; font-size: 0.72rem; color: var(--muted); }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent-dev); }
+
+  @media (max-width: 900px) {
+    .editor-area { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 640px) {
+    .toolbar { gap: 6px; }
+    .toolbar-group { padding-right: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div style="display:flex;align-items:center;gap:20px;">
+    <a class="logo" href="index.html">Quick<span>Dev</span></a>
+    <div class="breadcrumb">
+      <a href="index.html">Home</a>
+      <span>/</span>
+      <strong>JSON Editor</strong>
+    </div>
+  </div>
+  <nav>
+    <a href="index.html#dev">Dev</a>
+    <a href="index.html#img">Images</a>
+    <a href="index.html#pdf">PDF</a>
+  </nav>
+</header>
+
+<!-- PAGE -->
+<div class="page">
+
+  <!-- TITLE ROW -->
+  <div class="page-title-row">
+    <div class="page-icon">{ }</div>
+    <div>
+      <div class="page-title">JSON Editor</div>
+      <div class="page-subtitle">Format, validate, minify, and explore JSON — all in your browser</div>
+    </div>
+  </div>
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <!-- Format group -->
+    <div class="toolbar-group">
+      <button class="btn primary" onclick="formatJSON()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4h12M2 8h8M2 12h10"/></svg>
+        Format / Beautify
+      </button>
+      <button class="btn" onclick="minifyJSON()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 5h10M3 8h10M3 11h10"/></svg>
+        Minify
+      </button>
+      <button class="btn" onclick="validateJSON()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3,8 6,12 13,4"/></svg>
+        Validate
+      </button>
+    </div>
+
+    <!-- Indent group -->
+    <div class="toolbar-group">
+      <span style="font-family:'DM Mono',monospace;font-size:0.7rem;color:var(--muted);letter-spacing:0.08em;">INDENT</span>
+      <button class="select-pill active" id="indent-2" onclick="setIndent(2)">2</button>
+      <button class="select-pill" id="indent-3" onclick="setIndent(3)">3</button>
+      <button class="select-pill" id="indent-4" onclick="setIndent(4)">4</button>
+    </div>
+
+    <!-- Convert group -->
+    <div class="toolbar-group">
+      <button class="btn" onclick="convertTo('xml')">→ XML</button>
+      <button class="btn" onclick="convertTo('csv')">→ CSV</button>
+      <button class="btn" onclick="convertTo('yaml')">→ YAML</button>
+    </div>
+
+    <!-- File group -->
+    <div class="toolbar-group">
+      <input type="file" id="file-input" accept=".json,application/json" onchange="uploadFile(event)">
+      <button class="btn" onclick="document.getElementById('file-input').click()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v8M5 5l3-3 3 3"/><path d="M3 12h10"/></svg>
+        Upload
+      </button>
+      <button class="btn" onclick="downloadJSON()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v8M5 9l3 3 3-3"/><path d="M3 14h10"/></svg>
+        Download
+      </button>
+    </div>
+
+    <!-- Sample group -->
+    <div class="toolbar-group dropdown" id="sample-dropdown">
+      <button class="btn" onclick="toggleDropdown()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="8" r="6"/><path d="M8 5v3l2 2"/></svg>
+        Samples ▾
+      </button>
+      <div class="dropdown-menu">
+        <button class="dropdown-item" onclick="loadSample('person')">👤 Person Object</button>
+        <button class="dropdown-item" onclick="loadSample('array')">📋 Array of Items</button>
+        <button class="dropdown-item" onclick="loadSample('nested')">🌳 Nested Object</button>
+        <button class="dropdown-item" onclick="loadSample('api')">🔌 API Response</button>
+      </div>
+    </div>
+
+    <!-- Clear -->
+    <div class="toolbar-group">
+      <button class="btn danger" onclick="clearAll()">
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l10 10M13 3L3 13"/></svg>
+        Clear
+      </button>
+    </div>
+  </div>
+
+  <!-- STATUS BAR -->
+  <div class="status-bar">
+    <div class="status-item">
+      <div class="status-dot" id="status-dot"></div>
+      <span id="status-text" class="status-text">Ready</span>
+    </div>
+    <div class="status-item">Lines: <span class="status-text" id="stat-lines">0</span></div>
+    <div class="status-item">Size: <span class="status-text" id="stat-size">0 B</span></div>
+    <div class="status-item">Keys: <span class="status-text" id="stat-keys">0</span></div>
+    <div class="status-item">Depth: <span class="status-text" id="stat-depth">0</span></div>
+    <span class="status-spacer"></span>
+    <div id="error-msg" class="status-error-msg" style="display:none;"></div>
+  </div>
+
+  <!-- EDITOR AREA -->
+  <div class="editor-area">
+
+    <!-- LEFT: INPUT -->
+    <div class="pane">
+      <div class="pane-header">
+        <span class="pane-title">Input JSON</span>
+        <div class="pane-actions">
+          <button class="pane-btn" onclick="copyInput()">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="9" height="9" rx="1"/><path d="M3 12V3h9"/></svg>
+            Copy
+          </button>
+          <button class="pane-btn" onclick="clearInput()">Clear</button>
+        </div>
+      </div>
+      <div class="editor-wrapper">
+        <div class="line-numbers" id="line-numbers">1</div>
+        <textarea
+          class="code-input"
+          id="json-input"
+          spellcheck="false"
+          autocomplete="off"
+          placeholder='Paste your JSON here…&#10;&#10;Example:&#10;{&#10;  "name": "QuickDev",&#10;  "version": 1&#10;}'
+          oninput="onInputChange()"
+          onscroll="syncScroll()"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- RIGHT: OUTPUT / TREE -->
+    <div class="pane" id="right-pane">
+      <div class="pane-header">
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="pane-btn" id="view-raw" onclick="setView('raw')" style="color:var(--accent-dev);border-color:rgba(79,255,176,0.3);">Raw</button>
+          <button class="pane-btn" id="view-tree" onclick="setView('tree')">Tree</button>
+        </div>
+        <div class="pane-actions">
+          <button class="pane-btn" onclick="copyOutput()">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="9" height="9" rx="1"/><path d="M3 12V3h9"/></svg>
+            Copy
+          </button>
+          <button class="pane-btn" onclick="expandAll()">Expand All</button>
+          <button class="pane-btn" onclick="collapseAll()">Collapse</button>
+        </div>
+      </div>
+
+      <!-- Raw output -->
+      <div class="editor-wrapper" id="raw-view">
+        <div class="line-numbers" id="out-line-numbers">1</div>
+        <textarea class="code-input" id="json-output" readonly spellcheck="false"
+          placeholder="Formatted output appears here…"></textarea>
+      </div>
+
+      <!-- Tree view -->
+      <div class="tree-view" id="tree-view" style="display:none;">
+        <div class="empty-state" id="tree-empty">
+          <div class="empty-icon">🌳</div>
+          <div class="empty-title">No tree yet</div>
+          <div class="empty-desc">Format valid JSON on the left to see the interactive tree view here.</div>
+        </div>
+        <div id="tree-root"></div>
+      </div>
+
+      <!-- Convert output -->
+      <div class="convert-row" id="convert-tabs" style="display:none;">
+        <span style="font-family:'DM Mono',monospace;font-size:0.68rem;color:var(--muted);align-self:center;">CONVERTED:</span>
+        <button class="convert-tab active" id="ctab-xml" onclick="showConvert('xml')">XML</button>
+        <button class="convert-tab" id="ctab-csv" onclick="showConvert('csv')">CSV</button>
+        <button class="convert-tab" id="ctab-yaml" onclick="showConvert('yaml')">YAML</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"><div class="t-dot"></div><span id="toast-msg">Copied!</span></div>
+
+<footer>
+  <p>© 2025 <a href="index.html">QuickDev</a> — Runs entirely in your browser. No data is sent to any server.</p>
+  <p><a href="index.html">← All Tools</a></p>
+</footer>
+
+<script>
+// ─── STATE ──────────────────────────────────────────────────────────────────
+let indentSize = 2;
+let currentView = 'raw';
+let convertData = { xml: '', csv: '', yaml: '' };
+let activeConvert = null;
+
+// ─── SAMPLES ────────────────────────────────────────────────────────────────
+const SAMPLES = {
+  person: `{
+  "name": "Ada Lovelace",
+  "age": 36,
+  "email": "ada@example.com",
+  "address": {
+    "street": "10 Downing Street",
+    "city": "London",
+    "country": "UK"
+  },
+  "skills": ["Mathematics", "Programming", "Engineering"],
+  "active": true
+}`,
+  array: `[
+  { "id": 1, "product": "Keyboard", "price": 49.99, "inStock": true },
+  { "id": 2, "product": "Mouse", "price": 29.99, "inStock": true },
+  { "id": 3, "product": "Monitor", "price": 349.00, "inStock": false },
+  { "id": 4, "product": "Webcam", "price": 89.99, "inStock": true }
+]`,
+  nested: `{
+  "company": "QuickDev Inc.",
+  "founded": 2020,
+  "departments": {
+    "engineering": {
+      "head": "Alice Smith",
+      "size": 40,
+      "teams": ["frontend", "backend", "devops"]
+    },
+    "design": {
+      "head": "Bob Jones",
+      "size": 12,
+      "teams": ["ui", "ux"]
+    }
+  },
+  "public": true,
+  "metadata": null
+}`,
+  api: `{
+  "status": "success",
+  "code": 200,
+  "data": {
+    "users": [
+      { "id": 101, "username": "jsmith", "role": "admin", "verified": true },
+      { "id": 102, "username": "bjones", "role": "user", "verified": false }
+    ],
+    "pagination": {
+      "page": 1,
+      "perPage": 20,
+      "total": 2
+    }
+  },
+  "timestamp": "2025-05-30T10:00:00Z"
+}`
+};
+
+// ─── INPUT HANDLING ──────────────────────────────────────────────────────────
+function onInputChange() {
+  updateLineNumbers();
+  updateStats();
+  liveValidate();
+  if (currentView === 'tree') renderTree();
+  activeConvert = null;
+  document.getElementById('convert-tabs').style.display = 'none';
+}
+
+function updateLineNumbers() {
+  const input = document.getElementById('json-input');
+  const lines = input.value.split('\n');
+  document.getElementById('line-numbers').textContent = lines.map((_, i) => i + 1).join('\n');
+}
+
+function syncScroll() {
+  const input = document.getElementById('json-input');
+  document.getElementById('line-numbers').scrollTop = input.scrollTop;
+}
+
+function updateStats() {
+  const val = document.getElementById('json-input').value;
+  const lines = val ? val.split('\n').length : 0;
+  const size = new Blob([val]).size;
+  document.getElementById('stat-lines').textContent = lines;
+  document.getElementById('stat-size').textContent = formatBytes(size);
+
+  try {
+    const parsed = JSON.parse(val);
+    document.getElementById('stat-keys').textContent = countKeys(parsed);
+    document.getElementById('stat-depth').textContent = getDepth(parsed);
+  } catch {
+    document.getElementById('stat-keys').textContent = '—';
+    document.getElementById('stat-depth').textContent = '—';
+  }
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+  return (b / 1048576).toFixed(1) + ' MB';
+}
+
+function countKeys(obj, count = 0) {
+  if (typeof obj !== 'object' || obj === null) return count;
+  if (Array.isArray(obj)) { obj.forEach(v => { count = countKeys(v, count); }); return count; }
+  Object.values(obj).forEach(v => { count++; count = countKeys(v, count - 1) + 1; });
+  return Object.keys(obj).length + Object.values(obj).reduce((a, v) => a + (typeof v === 'object' && v !== null ? countKeys(v) : 0), 0);
+}
+
+function getDepth(obj, d = 0) {
+  if (typeof obj !== 'object' || obj === null) return d;
+  const vals = Array.isArray(obj) ? obj : Object.values(obj);
+  if (!vals.length) return d + 1;
+  return Math.max(...vals.map(v => getDepth(v, d + 1)));
+}
+
+// ─── VALIDATE ────────────────────────────────────────────────────────────────
+function liveValidate() {
+  const val = document.getElementById('json-input').value.trim();
+  const dot = document.getElementById('status-dot');
+  const txt = document.getElementById('status-text');
+  const err = document.getElementById('error-msg');
+
+  if (!val) {
+    dot.className = 'status-dot'; txt.textContent = 'Ready'; err.style.display = 'none'; return;
+  }
+  try {
+    JSON.parse(val);
+    dot.className = 'status-dot valid'; txt.textContent = 'Valid JSON';
+    err.style.display = 'none';
+  } catch (e) {
+    dot.className = 'status-dot error'; txt.textContent = 'Invalid JSON';
+    err.style.display = 'block'; err.textContent = e.message;
+  }
+}
+
+function validateJSON() {
+  liveValidate();
+  const dot = document.getElementById('status-dot');
+  if (dot.classList.contains('valid')) toast('✓ JSON is valid!');
+  else if (dot.classList.contains('error')) toast('✗ Invalid JSON — check error below');
+  else toast('Paste JSON to validate');
+}
+
+// ─── FORMAT / MINIFY ─────────────────────────────────────────────────────────
+function formatJSON() {
+  const val = document.getElementById('json-input').value.trim();
+  if (!val) { toast('Nothing to format'); return; }
+  try {
+    const parsed = JSON.parse(val);
+    const formatted = JSON.stringify(parsed, null, indentSize);
+    document.getElementById('json-input').value = formatted;
+    document.getElementById('json-output').value = formatted;
+    updateOutLineNumbers(formatted);
+    updateLineNumbers();
+    updateStats();
+    liveValidate();
+    if (currentView === 'tree') renderTree();
+    toast('Formatted ✓');
+  } catch (e) {
+    toast('Invalid JSON — cannot format');
+  }
+}
+
+function minifyJSON() {
+  const val = document.getElementById('json-input').value.trim();
+  if (!val) { toast('Nothing to minify'); return; }
+  try {
+    const parsed = JSON.parse(val);
+    const minified = JSON.stringify(parsed);
+    document.getElementById('json-output').value = minified;
+    updateOutLineNumbers(minified);
+    if (currentView === 'tree') renderTree();
+    toast('Minified ✓');
+  } catch (e) {
+    toast('Invalid JSON — cannot minify');
+  }
+}
+
+function updateOutLineNumbers(text) {
+  const lines = text.split('\n');
+  document.getElementById('out-line-numbers').textContent = lines.map((_, i) => i + 1).join('\n');
+}
+
+// ─── INDENT ──────────────────────────────────────────────────────────────────
+function setIndent(n) {
+  indentSize = n;
+  [2, 3, 4].forEach(i => {
+    document.getElementById('indent-' + i).classList.toggle('active', i === n);
+  });
+}
+
+// ─── VIEW TOGGLE ─────────────────────────────────────────────────────────────
+function setView(v) {
+  currentView = v;
+  const rawView = document.getElementById('raw-view');
+  const treeView = document.getElementById('tree-view');
+  document.getElementById('view-raw').style.color = v === 'raw' ? 'var(--accent-dev)' : '';
+  document.getElementById('view-raw').style.borderColor = v === 'raw' ? 'rgba(79,255,176,0.3)' : '';
+  document.getElementById('view-tree').style.color = v === 'tree' ? 'var(--accent-dev)' : '';
+  document.getElementById('view-tree').style.borderColor = v === 'tree' ? 'rgba(79,255,176,0.3)' : '';
+  rawView.style.display = v === 'raw' ? 'flex' : 'none';
+  treeView.style.display = v === 'tree' ? 'flex' : 'none';
+  if (v === 'tree') renderTree();
+}
+
+// ─── TREE VIEW ───────────────────────────────────────────────────────────────
+function renderTree() {
+  const val = document.getElementById('json-input').value.trim();
+  const root = document.getElementById('tree-root');
+  const empty = document.getElementById('tree-empty');
+  if (!val) { root.innerHTML = ''; empty.style.display = 'flex'; return; }
+  try {
+    const parsed = JSON.parse(val);
+    empty.style.display = 'none';
+    root.innerHTML = '';
+    root.appendChild(buildNode(parsed, null, true));
+  } catch {
+    root.innerHTML = '';
+    empty.innerHTML = '<div class="empty-icon">⚠️</div><div class="empty-title">Invalid JSON</div><div class="empty-desc">Fix the JSON errors on the left to see the tree.</div>';
+    empty.style.display = 'flex';
+  }
+}
+
+function buildNode(val, key, expanded = false) {
+  const node = document.createElement('div');
+  node.className = 'tree-node';
+
+  if (typeof val === 'object' && val !== null) {
+    const isArr = Array.isArray(val);
+    const items = isArr ? val : Object.keys(val);
+    const count = items.length;
+    const openB = isArr ? '[' : '{';
+    const closeB = isArr ? ']' : '}';
+
+    const row = document.createElement('div');
+    row.className = 'tree-row';
+
+    const toggle = document.createElement('span');
+    toggle.className = 'tree-toggle' + (expanded ? ' open' : '');
+    toggle.textContent = '▶';
+
+    const keyEl = key !== null ? `<span class="tree-key">"${escHtml(key)}"</span><span class="tree-colon">: </span>` : '';
+    const summary = document.createElement('span');
+    summary.innerHTML = `${keyEl}<span class="tree-bracket">${openB}</span><span class="tree-count">${count} ${isArr ? 'items' : 'keys'}</span>`;
+
+    row.appendChild(toggle);
+    row.appendChild(summary);
+
+    const children = document.createElement('div');
+    children.className = 'tree-children' + (expanded ? '' : ' collapsed');
+
+    if (isArr) {
+      val.forEach((item, i) => {
+        children.appendChild(buildNode(item, i, false));
+      });
+    } else {
+      Object.entries(val).forEach(([k, v]) => {
+        children.appendChild(buildNode(v, k, false));
+      });
+    }
+
+    const closeRow = document.createElement('div');
+    closeRow.className = 'tree-row';
+    closeRow.innerHTML = `<span style="width:14px"></span><span class="tree-bracket">${closeB}</span>`;
+
+    row.onclick = (e) => {
+      e.stopPropagation();
+      const open = toggle.classList.toggle('open');
+      children.classList.toggle('collapsed', !open);
+    };
+
+    node.appendChild(row);
+    node.appendChild(children);
+    node.appendChild(closeRow);
+  } else {
+    const row = document.createElement('div');
+    row.className = 'tree-row';
+    const keyEl = key !== null ? `<span class="tree-key">"${escHtml(String(key))}"</span><span class="tree-colon">: </span>` : '';
+    let valEl;
+    if (val === null) valEl = `<span class="tree-null">null</span>`;
+    else if (typeof val === 'boolean') valEl = `<span class="tree-bool">${val}</span>`;
+    else if (typeof val === 'number') valEl = `<span class="tree-number">${val}</span>`;
+    else valEl = `<span class="tree-string">"${escHtml(String(val))}"</span>`;
+    row.innerHTML = `<span style="width:14px"></span>${keyEl}${valEl}`;
+    node.appendChild(row);
+  }
+  return node;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function expandAll() {
+  document.querySelectorAll('.tree-toggle').forEach(t => t.classList.add('open'));
+  document.querySelectorAll('.tree-children').forEach(c => c.classList.remove('collapsed'));
+}
+function collapseAll() {
+  document.querySelectorAll('.tree-toggle').forEach(t => t.classList.remove('open'));
+  document.querySelectorAll('.tree-children').forEach(c => c.classList.add('collapsed'));
+}
+
+// ─── CONVERT ─────────────────────────────────────────────────────────────────
+function convertTo(type) {
+  const val = document.getElementById('json-input').value.trim();
+  if (!val) { toast('Paste JSON first'); return; }
+  let parsed;
+  try { parsed = JSON.parse(val); } catch { toast('Invalid JSON — fix errors first'); return; }
+
+  convertData.xml = jsonToXml(parsed);
+  convertData.csv = jsonToCsv(parsed);
+  convertData.yaml = jsonToYaml(parsed, 0);
+
+  // Switch to raw view and show conversion
+  setView('raw');
+  activeConvert = type;
+  document.getElementById('json-output').value = convertData[type];
+  updateOutLineNumbers(convertData[type]);
+  document.getElementById('convert-tabs').style.display = 'flex';
+  ['xml','csv','yaml'].forEach(t => {
+    document.getElementById('ctab-' + t).classList.toggle('active', t === type);
+  });
+  toast(`Converted to ${type.toUpperCase()} ✓`);
+}
+
+function showConvert(type) {
+  activeConvert = type;
+  document.getElementById('json-output').value = convertData[type];
+  updateOutLineNumbers(convertData[type]);
+  ['xml','csv','yaml'].forEach(t => {
+    document.getElementById('ctab-' + t).classList.toggle('active', t === type);
+  });
+}
+
+function jsonToXml(obj, indent = 0, tag = 'root') {
+  const sp = '  '.repeat(indent);
+  if (Array.isArray(obj)) {
+    return obj.map(item => `${sp}<item>${typeof item === 'object' && item ? '\n' + jsonToXml(item, indent + 1, null) + sp : escHtml(String(item))}</item>`).join('\n');
+  }
+  if (typeof obj === 'object' && obj !== null) {
+    const inner = Object.entries(obj).map(([k, v]) => {
+      const safeK = k.replace(/[^a-zA-Z0-9_\-]/g, '_');
+      if (typeof v === 'object' && v !== null) {
+        return `${sp}  <${safeK}>\n${jsonToXml(v, indent + 2, safeK)}${sp}  </${safeK}>`;
+      }
+      return `${sp}  <${safeK}>${escHtml(String(v === null ? '' : v))}</${safeK}>`;
+    }).join('\n');
+    if (tag === 'root') return `<?xml version="1.0" encoding="UTF-8"?>\n<root>\n${inner}\n</root>`;
+    return inner + '\n';
+  }
+  return String(obj);
+}
+
+function jsonToCsv(data) {
+  const arr = Array.isArray(data) ? data : [data];
+  if (!arr.length) return '';
+  const headers = [...new Set(arr.flatMap(o => typeof o === 'object' && o ? Object.keys(o) : []))];
+  if (!headers.length) return arr.map(String).join('\n');
+  const csvEsc = v => { const s = v === null || v === undefined ? '' : String(v); return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g,'""')}"` : s; };
+  return [headers.join(','), ...arr.map(row => headers.map(h => csvEsc(row && typeof row === 'object' ? row[h] : row)).join(','))].join('\n');
+}
+
+function jsonToYaml(obj, depth = 0) {
+  const sp = '  '.repeat(depth);
+  if (obj === null) return 'null';
+  if (typeof obj === 'boolean') return String(obj);
+  if (typeof obj === 'number') return String(obj);
+  if (typeof obj === 'string') return obj.includes('\n') || obj.includes(':') || obj.includes('#') ? `"${obj.replace(/"/g,'\\"')}"` : obj;
+  if (Array.isArray(obj)) {
+    if (!obj.length) return '[]';
+    return obj.map(item => {
+      const v = jsonToYaml(item, depth + 1);
+      return typeof item === 'object' && item !== null ? `${sp}- \n${sp}  ` + v.split('\n').join(`\n${sp}  `) : `${sp}- ${v}`;
+    }).join('\n');
+  }
+  if (typeof obj === 'object') {
+    if (!Object.keys(obj).length) return '{}';
+    return Object.entries(obj).map(([k, v]) => {
+      if (typeof v === 'object' && v !== null) {
+        return `${sp}${k}:\n${jsonToYaml(v, depth + 1)}`;
+      }
+      return `${sp}${k}: ${jsonToYaml(v, depth)}`;
+    }).join('\n');
+  }
+  return String(obj);
+}
+
+// ─── FILE OPS ────────────────────────────────────────────────────────────────
+function uploadFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('json-input').value = ev.target.result;
+    onInputChange();
+    toast('File loaded ✓');
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+}
+
+function downloadJSON() {
+  const val = document.getElementById('json-output').value || document.getElementById('json-input').value;
+  if (!val.trim()) { toast('Nothing to download'); return; }
+  const ext = activeConvert || 'json';
+  const mime = { json: 'application/json', xml: 'application/xml', csv: 'text/csv', yaml: 'text/yaml' };
+  const blob = new Blob([val], { type: mime[ext] || 'text/plain' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `quickdev-output.${ext}`; a.click();
+  toast('Downloaded ✓');
+}
+
+// ─── CLIPBOARD ───────────────────────────────────────────────────────────────
+function copyInput() {
+  const v = document.getElementById('json-input').value;
+  if (!v.trim()) { toast('Nothing to copy'); return; }
+  navigator.clipboard.writeText(v).then(() => toast('Input copied ✓'));
+}
+
+function copyOutput() {
+  const v = document.getElementById('json-output').value;
+  if (!v.trim()) { toast('Nothing to copy'); return; }
+  navigator.clipboard.writeText(v).then(() => toast('Output copied ✓'));
+}
+
+// ─── MISC ────────────────────────────────────────────────────────────────────
+function clearAll() {
+  document.getElementById('json-input').value = '';
+  document.getElementById('json-output').value = '';
+  document.getElementById('line-numbers').textContent = '1';
+  document.getElementById('out-line-numbers').textContent = '1';
+  document.getElementById('tree-root').innerHTML = '';
+  document.getElementById('tree-empty').style.display = 'flex';
+  document.getElementById('convert-tabs').style.display = 'none';
+  document.getElementById('error-msg').style.display = 'none';
+  activeConvert = null;
+  updateStats();
+  liveValidate();
+}
+
+function clearInput() {
+  document.getElementById('json-input').value = '';
+  onInputChange();
+}
+
+function loadSample(key) {
+  document.getElementById('json-input').value = SAMPLES[key];
+  toggleDropdown(false);
+  onInputChange();
+  formatJSON();
+}
+
+function toggleDropdown(force) {
+  const d = document.getElementById('sample-dropdown');
+  if (force === false) { d.classList.remove('open'); return; }
+  d.classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('#sample-dropdown')) {
+    document.getElementById('sample-dropdown').classList.remove('open');
+  }
+});
+
+// ─── TOAST ───────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  document.getElementById('toast-msg').textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ─── INIT ────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  updateStats();
+  liveValidate();
+});
+
+// Tab key support
+document.getElementById('json-input').addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = e.target.selectionStart, end = e.target.selectionEnd;
+    const spaces = ' '.repeat(indentSize);
+    e.target.value = e.target.value.substring(0, s) + spaces + e.target.value.substring(end);
+    e.target.selectionStart = e.target.selectionEnd = s + indentSize;
+    onInputChange();
+  }
+});
+</script>
+</body>
+</html>
