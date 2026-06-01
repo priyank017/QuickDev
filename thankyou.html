@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QuickDev — Thank You</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --surface: #131720;
+    --surface2: #1a2030;
+    --border: #242c3d;
+    --text: #e8edf5;
+    --muted: #6b7a99;
+    --accent-dev: #4fffb0;
+    --accent-img: #ff8c42;
+    --accent-pdf: #7b8fff;
+    --glow-dev: rgba(79,255,176,0.15);
+    --glow-img: rgba(255,140,66,0.15);
+    --glow-pdf: rgba(123,143,255,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ── GRID BACKGROUND ── */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0;
+    z-index: 10;
+    padding: 0 clamp(20px, 5vw, 80px);
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,14,20,0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .logo span { color: var(--accent-dev); }
+
+  nav { display: flex; gap: 8px; align-items: center; }
+  nav a {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    transition: color 0.2s, background 0.2s;
+  }
+  nav a:hover { color: var(--text); background: var(--surface2); }
+
+  .badge-new {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.72rem; font-family: 'DM Mono', monospace;
+    background: rgba(79,255,176,0.1);
+    color: var(--accent-dev);
+    border: 1px solid rgba(79,255,176,0.3);
+    padding: 5px 12px; border-radius: 100px;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .badge-new::before { content: '●'; font-size: 0.5rem; animation: pulse 2s infinite; }
+  .badge-new:hover { background: rgba(79,255,176,0.2); }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── PAGE WRAPPER ── */
+  .page-center {
+    position: relative; z-index: 5;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: clamp(48px, 10vh, 120px) clamp(20px, 5vw, 80px);
+    text-align: center;
+  }
+
+  /* ── ANIMATED ICON ── */
+  .icon-wrap {
+    position: relative;
+    width: 96px; height: 96px;
+    margin-bottom: 40px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.1s forwards;
+  }
+
+  .icon-ring {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 1.5px solid rgba(79,255,176,0.25);
+    animation: ringPulse 2.4s ease-in-out infinite;
+  }
+  .icon-ring:nth-child(2) {
+    inset: -14px;
+    border-color: rgba(79,255,176,0.12);
+    animation-delay: 0.4s;
+  }
+  .icon-ring:nth-child(3) {
+    inset: -28px;
+    border-color: rgba(79,255,176,0.06);
+    animation-delay: 0.8s;
+  }
+
+  @keyframes ringPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50%       { transform: scale(1.06); opacity: 0.6; }
+  }
+
+  .icon-core {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: radial-gradient(circle at 40% 35%, rgba(79,255,176,0.18), rgba(79,255,176,0.04));
+    border: 1px solid rgba(79,255,176,0.35);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 2.2rem;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 0 32px rgba(79,255,176,0.12), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  /* ── EYEBROW ── */
+  .eyebrow {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent-dev);
+    margin-bottom: 18px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.25s forwards;
+  }
+
+  /* ── HEADLINE ── */
+  .headline {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2.4rem, 6vw, 4.4rem);
+    font-weight: 300;
+    line-height: 1.06;
+    letter-spacing: -0.03em;
+    margin-bottom: 22px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.35s forwards;
+  }
+  .headline em {
+    font-style: italic;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--accent-dev), #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── BODY TEXT ── */
+  .body-text {
+    font-size: 1.05rem;
+    color: var(--muted);
+    max-width: 500px;
+    line-height: 1.75;
+    margin-bottom: 48px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.48s forwards;
+  }
+
+  /* ── STATUS CARD ── */
+  .status-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 32px;
+    max-width: 480px;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.6s forwards;
+    position: relative;
+    overflow: hidden;
+  }
+  .status-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at top left, var(--glow-dev), transparent 70%);
+    pointer-events: none;
+  }
+
+  .status-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .status-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .status-dot.active   { background: var(--accent-dev); box-shadow: 0 0 8px var(--accent-dev); animation: pulse 2s infinite; }
+  .status-dot.pending  { background: var(--accent-img); opacity: 0.5; }
+
+  .status-info { flex: 1; text-align: left; }
+  .status-label {
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-bottom: 2px;
+  }
+  .status-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .status-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .badge-live {
+    background: rgba(79,255,176,0.12);
+    color: var(--accent-dev);
+    border: 1px solid rgba(79,255,176,0.3);
+  }
+  .badge-soon {
+    background: rgba(255,140,66,0.1);
+    color: var(--accent-img);
+    border: 1px solid rgba(255,140,66,0.25);
+  }
+
+  .status-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 0 -4px;
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    text-align: left;
+  }
+  .progress-meta {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .progress-meta span:first-child {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .progress-meta span:last-child {
+    font-family: 'Fraunces', serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: var(--accent-dev);
+  }
+  .progress-track {
+    height: 4px;
+    background: var(--border);
+    border-radius: 100px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    width: 0%;
+    border-radius: 100px;
+    background: linear-gradient(90deg, var(--accent-dev), #00d4ff);
+    box-shadow: 0 0 10px rgba(79,255,176,0.5);
+    animation: fillBar 1.8s 1s cubic-bezier(0.4,0,0.2,1) forwards;
+  }
+  @keyframes fillBar {
+    to { width: 72%; }
+  }
+
+  /* ── CTA BUTTONS ── */
+  .cta-row {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-top: 12px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.75s forwards;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: 'Cabinet Grotesk', sans-serif;
+    letter-spacing: -0.01em;
+    padding: 10px 22px;
+    border-radius: 10px;
+    text-decoration: none;
+    transition: all 0.2s;
+    cursor: pointer;
+    border: none;
+  }
+
+  .btn-primary {
+    background: rgba(79,255,176,0.12);
+    color: var(--accent-dev);
+    border: 1px solid rgba(79,255,176,0.35);
+  }
+  .btn-primary:hover {
+    background: rgba(79,255,176,0.2);
+    box-shadow: 0 0 20px rgba(79,255,176,0.15);
+    transform: translateY(-1px);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover {
+    color: var(--text);
+    background: var(--surface2);
+    transform: translateY(-1px);
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative; z-index: 5;
+    border-top: 1px solid var(--border);
+    padding: 32px clamp(20px,5vw,80px);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 16px;
+  }
+  footer p {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent-dev); }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(20px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 640px) {
+    nav a { display: none; }
+    .status-card { padding: 22px 20px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#">Quick<span>Dev</span></a>
+  <nav>
+    <a href="index.html">Dev</a>
+    <a href="index.html#img">Images</a>
+    <a href="index.html#pdf">PDF</a>
+    <a class="badge-new" href="https://tools.hinagro.com/whats-new">What's New &nbsp;7</a>
+  </nav>
+</header>
+
+<!-- MAIN CONTENT -->
+<div class="page-center">
+
+  <!-- Animated icon -->
+  <div class="icon-wrap">
+    <div class="icon-ring"></div>
+    <div class="icon-ring"></div>
+    <div class="icon-ring"></div>
+    <div class="icon-core">✦</div>
+  </div>
+
+  <p class="eyebrow">Status Update</p>
+
+  <h1 class="headline">Thanks for<br>being <em>with us</em></h1>
+
+  <p class="body-text">
+    We're actively building something great. This tool is currently a work in progress — our team is heads-down crafting it to make your workflow smoother. Sit tight, it'll be worth the wait.
+  </p>
+
+  <!-- Status card -->
+  <div class="status-card">
+
+    <div class="status-row">
+      <div class="status-dot active"></div>
+      <div class="status-info">
+        <div class="status-label">Core tools live</div>
+        <div class="status-sub">JSON, JWT, Base64, PDF & more</div>
+      </div>
+      <span class="status-badge badge-live">Live</span>
+    </div>
+
+    <div class="status-divider"></div>
+
+    <div class="status-row">
+      <div class="status-dot pending"></div>
+      <div class="status-info">
+        <div class="status-label">New tools in development</div>
+        <div class="status-sub">Regex tester, CSV viewer & more</div>
+      </div>
+      <span class="status-badge badge-soon">Soon</span>
+    </div>
+
+    <div class="status-divider"></div>
+
+    <!-- Progress -->
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span>Overall progress</span>
+        <span>72%</span>
+      </div>
+      <div class="progress-track">
+        <div class="progress-fill"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- CTAs -->
+  <div class="cta-row">
+    <a class="btn btn-primary" href="index.html">← Back to tools</a>
+    <a class="btn btn-ghost" href="https://tools.hinagro.com/whats-new">What's new →</a>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p>© 2025 <a href="#">QuickDev</a> — All tools run client-side. Nothing is uploaded to a server.</p>
+  <p><a href="https://tools.hinagro.com/whats-new">What's New →</a></p>
+</footer>
+
+</body>
+</html>
