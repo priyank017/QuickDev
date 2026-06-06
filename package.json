@@ -1,0 +1,18 @@
+{
+  "name": "quickdev",
+  "version": "1.0.0",
+  "description": "QuickDev - Developer Utilities",
+  "scripts": {
+    "dev": "npx serve .",
+    "build": "echo 'Static site - no build required'"
+  },
+  "keywords": [
+    "developer-tools",
+    "utilities"
+  ],
+  "author": "priyank017",
+  "license": "MIT",
+  "dependencies": {
+    "@vercel/analytics": "^1.3.1"
+  }
+}

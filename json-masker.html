@@ -418,7 +418,7 @@
   .empty-icon { font-size: 2rem; opacity: 0.4; }
   .empty-label { font-family: 'DM Mono', monospace; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; }
 
-  /* ── FOOTER ── */
+  /* ─��� FOOTER ── */
   footer {
     position: relative; z-index: 5;
     border-top: 1px solid var(--border);
@@ -1099,6 +1099,10 @@ document.querySelectorAll('#maskModeGroup .radio-option').forEach(opt => {
 
 // Initial state
 setStatus('idle', 'Paste your JSON on the left to get started.');
+</script>
+<script type="module">
+  import { inject } from 'https://cdn.jsdelivr.net/npm/@vercel/analytics@1.6.1/+esm';
+  inject();
 </script>
 </body>
 </html>
