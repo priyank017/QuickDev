@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Base64 to Image — QuickDev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --surface: #131720;
+    --surface2: #1a2030;
+    --border: #242c3d;
+    --text: #e8edf5;
+    --muted: #6b7a99;
+    --accent-dev: #4fffb0;
+    --accent-img: #ff8c42;
+    --accent-pdf: #7b8fff;
+    --glow-dev: rgba(79,255,176,0.15);
+    --glow-img: rgba(255,140,66,0.15);
+    --glow-pdf: rgba(123,143,255,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0;
+    z-index: 10;
+    padding: 0 clamp(20px, 5vw, 80px);
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,14,20,0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .logo span { color: var(--accent-dev); }
+
+  nav { display: flex; gap: 8px; align-items: center; }
+  nav a {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    transition: color 0.2s, background 0.2s;
+  }
+  nav a:hover { color: var(--text); background: var(--surface2); }
+
+  .badge-new {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.72rem; font-family: 'DM Mono', monospace;
+    background: rgba(79,255,176,0.1);
+    color: var(--accent-dev);
+    border: 1px solid rgba(79,255,176,0.3);
+    padding: 5px 12px; border-radius: 100px;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .badge-new::before { content: '●'; font-size: 0.5rem; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .badge-new:hover { background: rgba(79,255,176,0.2); }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(20px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  /* ── BREADCRUMB ── */
+  .breadcrumb {
+    position: relative; z-index: 5;
+    padding: 20px clamp(20px, 5vw, 80px) 0;
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    opacity: 0;
+    animation: fadeUp 0.5s 0.1s forwards;
+  }
+  .breadcrumb a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent-img); }
+  .breadcrumb span { color: var(--accent-img); }
+
+  /* ── PAGE HERO ── */
+  .page-hero {
+    position: relative; z-index: 5;
+    padding: clamp(32px, 5vh, 56px) clamp(20px, 5vw, 80px) clamp(24px, 4vh, 40px);
+    max-width: 900px;
+  }
+
+  .tool-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-img);
+    background: rgba(255,140,66,0.1);
+    border: 1px solid rgba(255,140,66,0.25);
+    padding: 5px 12px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.5s 0.15s forwards;
+  }
+  .tool-badge::before { content: '🖼'; font-style: normal; }
+
+  .page-hero h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 5vw, 3.6rem);
+    font-weight: 300;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.2s forwards;
+  }
+  .page-hero h1 em {
+    font-style: italic;
+    font-weight: 700;
+    color: var(--accent-img);
+    -webkit-text-fill-color: var(--accent-img);
+  }
+
+  .page-hero p {
+    font-size: 1rem;
+    color: var(--muted);
+    max-width: 600px;
+    line-height: 1.7;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.3s forwards;
+  }
+  .page-hero p a {
+    color: var(--accent-img);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(255,140,66,0.4);
+    transition: border-color 0.2s;
+  }
+  .page-hero p a:hover { border-color: var(--accent-img); }
+
+  /* ── MAIN LAYOUT ── */
+  .tool-wrap {
+    position: relative; z-index: 5;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 80px) 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.4s forwards;
+  }
+
+  @media (max-width: 860px) {
+    .tool-wrap { grid-template-columns: 1fr; }
+  }
+
+  /* ── PANEL ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .panel-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .panel-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    padding: 3px 9px;
+    border-radius: 100px;
+    background: rgba(255,140,66,0.1);
+    color: var(--accent-img);
+    border: 1px solid rgba(255,140,66,0.2);
+  }
+
+  .panel-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+
+  .field-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  /* ── BASE64 INPUT ── */
+  .b64-textarea {
+    width: 100%;
+    min-height: 280px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.76rem;
+    line-height: 1.6;
+    resize: vertical;
+    outline: none;
+    word-break: break-all;
+    transition: border-color 0.2s;
+  }
+  .b64-textarea::placeholder { color: var(--muted); }
+  .b64-textarea:focus { border-color: rgba(255,140,66,0.5); }
+
+  .input-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+  .input-meta strong { color: var(--text); }
+
+  .sample-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .sample-btn {
+    padding: 6px 12px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.76rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .sample-btn:hover { color: var(--text); border-color: rgba(255,140,66,0.4); }
+
+  /* ── DECODE BUTTON ── */
+  .decode-btn {
+    width: 100%;
+    padding: 13px 20px;
+    background: var(--accent-img);
+    color: #0b0e14;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .decode-btn:hover:not(:disabled) {
+    background: #ffaa6e;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(255,140,66,0.3);
+  }
+  .decode-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .error-banner {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(255,93,93,0.08);
+    border: 1px solid rgba(255,93,93,0.3);
+    border-radius: 10px;
+    color: #ff8585;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+  }
+  .error-banner.visible { display: flex; }
+
+  /* ── PREVIEW PANEL ── */
+  .preview-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .preview-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 20px;
+    color: var(--muted);
+    min-height: 280px;
+  }
+  .preview-empty-icon { font-size: 2.5rem; opacity: 0.3; }
+  .preview-empty-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .preview-result { display: none; flex-direction: column; flex: 1; }
+  .preview-result.visible { display: flex; }
+
+  .preview-stage {
+    flex: 1;
+    min-height: 280px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+      linear-gradient(45deg, #1a2030 25%, transparent 25%),
+      linear-gradient(-45deg, #1a2030 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #1a2030 75%),
+      linear-gradient(-45deg, transparent 75%, #1a2030 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    background-color: var(--bg);
+  }
+  .preview-stage img {
+    max-width: 100%;
+    max-height: 360px;
+    border-radius: 8px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+  }
+
+  .preview-info {
+    border-top: 1px solid var(--border);
+    padding: 14px 20px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px 20px;
+  }
+  .info-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .info-row-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.64rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .info-row-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .download-bar {
+    display: none;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border);
+    gap: 10px;
+  }
+  .download-bar.visible { display: flex; flex-wrap: wrap; }
+
+  .dl-btn {
+    padding: 8px 18px;
+    border-radius: 7px;
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid;
+    text-decoration: none;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dl-btn-primary {
+    background: rgba(255,140,66,0.1);
+    color: var(--accent-img);
+    border-color: rgba(255,140,66,0.3);
+  }
+  .dl-btn-primary:hover { background: rgba(255,140,66,0.2); transform: translateY(-1px); }
+  .dl-btn-secondary {
+    background: var(--surface2);
+    color: var(--muted);
+    border-color: var(--border);
+  }
+  .dl-btn-secondary:hover { color: var(--text); transform: translateY(-1px); }
+
+  /* ── INFO SECTION ── */
+  .section-divider {
+    position: relative; z-index: 5;
+    max-width: 1100px;
+    margin: 0 auto 32px;
+    padding: 0 clamp(20px,5vw,80px);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .section-divider::before, .section-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .info-section {
+    position: relative; z-index: 5;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 80px) 56px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.5s forwards;
+  }
+  @media (max-width: 720px) { .info-section { grid-template-columns: 1fr; } }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+
+  .info-card h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .info-card h3 .h3-icon {
+    width: 30px; height: 30px;
+    background: rgba(255,140,66,0.12);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem;
+  }
+
+  .info-steps { display: flex; flex-direction: column; gap: 10px; }
+  .info-step {
+    display: flex; align-items: flex-start; gap: 12px;
+    font-size: 0.88rem; color: var(--muted); line-height: 1.5;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    background: rgba(255,140,66,0.12);
+    border: 1px solid rgba(255,140,66,0.2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent-img);
+    margin-top: 1px;
+  }
+
+  .info-card p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.65;
+    margin-bottom: 12px;
+  }
+  .info-card p:last-child { margin-bottom: 0; }
+
+  .format-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .format-chip {
+    padding: 6px 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent-img);
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+  .format-chip:hover { border-color: rgba(255,140,66,0.4); background: rgba(255,140,66,0.06); }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative; z-index: 5;
+    border-top: 1px solid var(--border);
+    padding: 32px clamp(20px,5vw,80px);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 16px;
+  }
+  footer p {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent-dev); }
+
+  @media (max-width: 640px) {
+    nav a { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#">Quick<span>Dev</span></a>
+  <nav>
+    <a href="#">Dev</a>
+    <a href="#">Images</a>
+    <a href="#">PDF</a>
+    <a class="badge-new" href="#">What's New &nbsp;7</a>
+  </nav>
+</header>
+
+<!-- BREADCRUMB -->
+<div class="breadcrumb">
+  <a href="#">Home</a>
+  <span>›</span>
+  <a href="#">Image Tools</a>
+  <span>›</span>
+  <span>Base64 to Image</span>
+</div>
+
+<!-- PAGE HERO -->
+<div class="page-hero">
+  <div class="tool-badge">Image Decoder</div>
+  <h1>Base64 to <em>Image</em></h1>
+  <p>
+    Decode a Base64 string back into an image and preview it right in your browser.
+    Get the resolution, MIME type, and file size, then download the result.
+    Looking for the reverse? Try <a href="#">Image to Base64</a>.
+  </p>
+</div>
+
+<!-- TOOL -->
+<div class="tool-wrap">
+
+  <!-- INPUT PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Base64 Input</span>
+      <span class="panel-badge">auto-detect format</span>
+    </div>
+    <div class="panel-body">
+
+      <div>
+        <label class="field-label">Base64 String</label>
+        <textarea class="b64-textarea" id="b64-input" placeholder="Paste your Base64 string here — with or without the data:image/...;base64, prefix" spellcheck="false" oninput="onInputChange()"></textarea>
+      </div>
+
+      <div class="input-meta">
+        <span>Length: <strong id="input-length">0</strong> chars</span>
+        <span id="input-detected"></span>
+      </div>
+
+      <div class="sample-row">
+        <button class="sample-btn" onclick="loadSample()">▸ Load sample image</button>
+        <button class="sample-btn" onclick="clearInput()">✕ Clear</button>
+      </div>
+
+      <div class="error-banner" id="error-banner">
+        <span>⚠</span>
+        <span id="error-text">Invalid Base64 string</span>
+      </div>
+
+      <button class="decode-btn" id="decode-btn" onclick="decodeImage()" disabled>
+        ⇄ Decode Base64 to Image
+      </button>
+
+    </div>
+  </div>
+
+  <!-- PREVIEW PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Preview Image</span>
+    </div>
+    <div class="preview-body">
+
+      <div class="preview-empty" id="preview-empty">
+        <span class="preview-empty-icon">🖼</span>
+        <div class="preview-empty-text">
+          The result of Base64 decoding<br>will appear here
+        </div>
+      </div>
+
+      <div class="preview-result" id="preview-result">
+        <div class="preview-stage">
+          <img id="preview-img" src="" alt="Decoded image">
+        </div>
+        <div class="preview-info">
+          <div class="info-row">
+            <span class="info-row-label">Resolution</span>
+            <span class="info-row-value" id="meta-resolution">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">MIME Type</span>
+            <span class="info-row-value" id="meta-mime">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">Extension</span>
+            <span class="info-row-value" id="meta-ext">—</span>
+          </div>
+          <div class="info-row">
+            <span class="info-row-label">File Size</span>
+            <span class="info-row-value" id="meta-size">—</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="download-bar" id="download-bar">
+      <a class="dl-btn dl-btn-primary" id="download-link" download="decoded-image.png">↓ Download Image</a>
+      <button class="dl-btn dl-btn-secondary" onclick="openInNewTab()">⤢ Open in New Tab</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- HOW TO / NOTES -->
+<div class="section-divider"><span class="section-label">Documentation</span></div>
+<div class="info-section">
+
+  <div class="info-card">
+    <h3><span class="h3-icon">①</span> How to use</h3>
+    <div class="info-steps">
+      <div class="info-step"><div class="step-num">1</div>Paste your Base64 string into the "Base64 Input" field.</div>
+      <div class="info-step"><div class="step-num">2</div>Press "Decode Base64 to Image" to render the result.</div>
+      <div class="info-step"><div class="step-num">3</div>Preview the image, check its details, and download it.</div>
+    </div>
+  </div>
+
+  <div class="info-card">
+    <h3><span class="h3-icon">ⓘ</span> Important notes</h3>
+    <p>This decoder forces the result to display as an image, even if it's actually a different file type — so if you're not sure your string is an image, the preview will tell you something is wrong.</p>
+    <p>Works with both raw Base64 and full Data URIs (e.g. <code>data:image/png;base64,...</code>) — the prefix is detected and stripped automatically.</p>
+    <div class="format-chips">
+      <a class="format-chip" href="#">BMP</a>
+      <a class="format-chip" href="#">GIF</a>
+      <a class="format-chip" href="#">ICO</a>
+      <a class="format-chip" href="#">JPG</a>
+      <a class="format-chip" href="#">PNG</a>
+      <a class="format-chip" href="#">SVG</a>
+      <a class="format-chip" href="#">WebP</a>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <p>© 2025 <a href="#">QuickDev</a> — All tools run client-side. Nothing is uploaded to a server.</p>
+  <p><a href="#">What's New →</a></p>
+</footer>
+
+<script>
+  const SAMPLE_B64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGQAAABkCAYAAABw4pVUAAAACXBIWXMAAAsTAAALEwEAmpwYAAAEzklEQVR4nO2dW4hVVRjHf2qZl4eyq6CSlT1USCFlZdMUUWZUL1IPlSXYi9JD0EsXqIfsAhVRb1pphUFUFlRgwUSNlmaaaJiVqVOZmnnLcVQyTo52po9vw37c++yz9zlrnzlf6w8/zJk5+/uvtdf8z1prr/WtfQRBEARBEARBEARBEAQhAJOACcCdwHzgFeAzYDuwH+gFfgNOAj2J/A78lXz2GfA8sDDhUmDAIM/jX2EYsBpYCxxKBNX12LCRDvAusBwYW3M9awNwI3AfsBnYbggwiNuB94CFtmrXNi4FngF6Ag9Ad28HsBJoCdjjLcD7wL8VheLOj4F5UWp7HnA1Mb+SX0lEAcVN8Z8YQ4Q9YgQbjlVm2/SROpwY+gqMK7v3Fcjs0n8MnhEuC8N3GbXJDeECjyOWLgEi9DfhTGAk0AyMAcYBE4ApwHRgFnAtcAfwIPAY8DKwBlgPbAYOAEcsX2sf8FXyNyuB+4DZwOQ2jSdfx0sCjs6sTAxYVrFRzdTo+ZUlW+rUqOaQjB7jXBp9MdpiE6HhTHrM6lT9DCdM1zjVqEr1MNxxlb2GE6F8EdocXDXKVa/r3eVcKlVwwzkY8jhrUxVu+EYqAkSoVvNoCFCgWh1rJgGwtVUmoTLU60aPI+ojQAdrTBaO1QH4lBR/+JpEFsxYY1eMyAMnzMShVE+CFTtZw7VQt9JoyglgrDmrtCEM92Eb1ekUFwNGgONmwzasU4yMpNNVK3pVdh7TBM6FmYRgUNxsdkbVwzCgKLrXl1dHYULdxKzh1+UOKQpJL0lksgD3eGuOJ5/B0KKD6mLAW0ZRzZQiQ/9SOzgB3hRzCsRDxIymG6PZGwYTL4ohgxzVZdGddZG54oQYVRdSY+JVMdZIuhuiOcOpRrW7BcWqUVc9hJ4ZRDXqRD1q9NW2RtWFOlGNuumWZQ1bGn0CrwHHE7VrAhqAVabM/htCnTSDpwGTzGOmVZqsr9YDDR+ahFwc2gPMcq6V41xZvAS8GLrCBQT7BvgycEUFAA8ZwfeBeQErqYFFhuiF0BUtoLjs+aIwlawu+8/qfp6oZGCFEXyf81U3sBO4wjlnZSHaCfeYO8dSWZsCv/zHwQYYYR6kqp3sZN9ETXG6lY8cBSe0o/AhPbFAW/cLb53WJZD4n4QqYzgwG/g26ZQOcAvDFqB7gQ0kqlbtbeYKAOA28FbnFXAtdb1XAcsy/jaPudkOgFHm+wcCe7gC2BG40i2k7QcMS/JMyzFAo3MZ8AdwR0qVeNQROO87ASmL5/oZqdMmuD0pE08lBjzn7HQTRtZcQfBz1cMNRgC4DvjasrbZkLPNxqQTr/RuPmuwbcCV1q3RgxGbQuMOJrk7ZkUYa6dEvgWeAm5KOu6e5PfTwBNZNUv+thV4xrTpzWoNXcXFtu2NbR/QKxXFZ5nYqe8KQRAEQRAEQRAEQRAEQXATgUFsm0+vAAAAAElFTkSuQmCC";
+
+  function onInputChange() {
+    const val = document.getElementById('b64-input').value.trim();
+    document.getElementById('input-length').textContent = val.length.toLocaleString();
+
+    const detected = document.getElementById('input-detected');
+    const match = val.match(/^data:([a-zA-Z0-9.+\/-]+);base64,/);
+    if (match) {
+      detected.textContent = `Detected: ${match[1]}`;
+    } else if (val.length > 0) {
+      detected.textContent = 'Raw Base64 (no prefix)';
+    } else {
+      detected.textContent = '';
+    }
+
+    document.getElementById('decode-btn').disabled = val.length === 0;
+    hideError();
+  }
+
+  function loadSample() {
+    document.getElementById('b64-input').value = SAMPLE_B64;
+    onInputChange();
+  }
+
+  function clearInput() {
+    document.getElementById('b64-input').value = '';
+    onInputChange();
+    resetPreview();
+  }
+
+  function showError(msg) {
+    document.getElementById('error-text').textContent = msg;
+    document.getElementById('error-banner').classList.add('visible');
+  }
+  function hideError() {
+    document.getElementById('error-banner').classList.remove('visible');
+  }
+
+  function resetPreview() {
+    document.getElementById('preview-empty').style.display = '';
+    document.getElementById('preview-result').classList.remove('visible');
+    document.getElementById('download-bar').classList.remove('visible');
+  }
+
+  function guessMimeFromBase64(raw) {
+    // Inspect leading bytes/characters of raw base64 to guess image type
+    const head = raw.substring(0, 16);
+    if (head.startsWith('iVBORw0KGgo')) return { mime: 'image/png', ext: 'png' };
+    if (head.startsWith('/9j/')) return { mime: 'image/jpeg', ext: 'jpg' };
+    if (head.startsWith('R0lGOD')) return { mime: 'image/gif', ext: 'gif' };
+    if (head.startsWith('Qk')) return { mime: 'image/bmp', ext: 'bmp' };
+    if (head.startsWith('UklGR')) return { mime: 'image/webp', ext: 'webp' };
+    if (head.startsWith('AAABAA')) return { mime: 'image/x-icon', ext: 'ico' };
+    if (raw.trim().startsWith('PHN2Zw') || raw.trim().startsWith('PD94bWwg')) return { mime: 'image/svg+xml', ext: 'svg' };
+    return { mime: 'image/png', ext: 'png' }; // default fallback
+  }
+
+  function decodeImage() {
+    hideError();
+    let val = document.getElementById('b64-input').value.trim();
+    if (!val) return;
+
+    let mime, ext, rawB64;
+    const match = val.match(/^data:([a-zA-Z0-9.+\/-]+);base64,(.*)$/s);
+
+    if (match) {
+      mime = match[1];
+      rawB64 = match[2].replace(/\s/g, '');
+      ext = (mime.split('/')[1] || 'png').replace('x-icon', 'ico').replace('svg+xml', 'svg');
+    } else {
+      rawB64 = val.replace(/\s/g, '');
+      const guessed = guessMimeFromBase64(rawB64);
+      mime = guessed.mime;
+      ext = guessed.ext;
+    }
+
+    // Validate base64
+    const cleaned = rawB64.replace(/-/g, '+').replace(/_/g, '/');
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(cleaned) || cleaned.length === 0) {
+      showError('This doesn\'t look like valid Base64. Check for stray characters or whitespace.');
+      resetPreview();
+      return;
+    }
+
+    let byteLength;
+    try {
+      const binary = atob(cleaned);
+      byteLength = binary.length;
+    } catch (e) {
+      showError('Could not decode this string — it may be corrupted or incomplete.');
+      resetPreview();
+      return;
+    }
+
+    const dataUri = `data:${mime};base64,${cleaned}`;
+    const img = document.getElementById('preview-img');
+
+    img.onload = function() {
+      document.getElementById('meta-resolution').textContent = `${img.naturalWidth} × ${img.naturalHeight}px`;
+      document.getElementById('meta-mime').textContent = mime;
+      document.getElementById('meta-ext').textContent = '.' + ext;
+      document.getElementById('meta-size').textContent = formatBytes(byteLength);
+
+      document.getElementById('preview-empty').style.display = 'none';
+      document.getElementById('preview-result').classList.add('visible');
+
+      const dlLink = document.getElementById('download-link');
+      dlLink.href = dataUri;
+      dlLink.download = `decoded-image.${ext}`;
+      document.getElementById('download-bar').classList.add('visible');
+    };
+    img.onerror = function() {
+      showError('This Base64 string doesn\'t appear to be a valid image. Try the Base64 to File converter instead.');
+      resetPreview();
+    };
+    img.src = dataUri;
+  }
+
+  function openInNewTab() {
+    const img = document.getElementById('preview-img');
+    if (img.src) window.open(img.src, '_blank');
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+</script>
+</body>
+</html>
