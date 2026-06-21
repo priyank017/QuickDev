@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JWT Encoder / Decoder — QuickDev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --surface: #131720;
+    --surface2: #1a2030;
+    --border: #242c3d;
+    --text: #e8edf5;
+    --muted: #6b7a99;
+    --accent-dev: #4fffb0;
+    --accent-img: #ff8c42;
+    --accent-pdf: #7b8fff;
+    --accent-jwt: #4fffb0;
+    --glow-dev: rgba(79,255,176,0.15);
+    --glow-img: rgba(255,140,66,0.15);
+    --glow-pdf: rgba(123,143,255,0.15);
+    --header-c: #ff5d8f;
+    --payload-c: #7b8fff;
+    --sig-c: #4fffb0;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0;
+    z-index: 10;
+    padding: 0 clamp(20px, 5vw, 80px);
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,14,20,0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .logo span { color: var(--accent-dev); }
+
+  nav { display: flex; gap: 8px; align-items: center; }
+  nav a {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    transition: color 0.2s, background 0.2s;
+  }
+  nav a:hover { color: var(--text); background: var(--surface2); }
+
+  .badge-new {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.72rem; font-family: 'DM Mono', monospace;
+    background: rgba(79,255,176,0.1);
+    color: var(--accent-dev);
+    border: 1px solid rgba(79,255,176,0.3);
+    padding: 5px 12px; border-radius: 100px;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .badge-new::before { content: '●'; font-size: 0.5rem; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .badge-new:hover { background: rgba(79,255,176,0.2); }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(20px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  /* ── BREADCRUMB ── */
+  .breadcrumb {
+    position: relative; z-index: 5;
+    padding: 20px clamp(20px, 5vw, 80px) 0;
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    opacity: 0;
+    animation: fadeUp 0.5s 0.1s forwards;
+  }
+  .breadcrumb a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent-dev); }
+  .breadcrumb span { color: var(--accent-dev); }
+
+  /* ── PAGE HERO ── */
+  .page-hero {
+    position: relative; z-index: 5;
+    padding: clamp(32px, 5vh, 56px) clamp(20px, 5vw, 80px) clamp(24px, 4vh, 40px);
+    max-width: 900px;
+  }
+
+  .tool-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-dev);
+    background: rgba(79,255,176,0.1);
+    border: 1px solid rgba(79,255,176,0.25);
+    padding: 5px 12px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.5s 0.15s forwards;
+  }
+  .tool-badge::before { content: '🔑'; font-style: normal; }
+
+  .page-hero h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 5vw, 3.6rem);
+    font-weight: 300;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.2s forwards;
+  }
+  .page-hero h1 em {
+    font-style: italic;
+    font-weight: 700;
+    color: var(--accent-dev);
+    -webkit-text-fill-color: var(--accent-dev);
+  }
+
+  .page-hero p {
+    font-size: 1rem;
+    color: var(--muted);
+    max-width: 580px;
+    line-height: 1.7;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.3s forwards;
+  }
+  .page-hero p a {
+    color: var(--accent-dev);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(79,255,176,0.4);
+    transition: border-color 0.2s;
+  }
+  .page-hero p a:hover { border-color: var(--accent-dev); }
+
+  /* ── MODE TOGGLE ── */
+  .mode-bar {
+    position: relative; z-index: 5;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 clamp(20px,5vw,80px) 20px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.35s forwards;
+  }
+  .mode-toggle {
+    display: inline-flex;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    gap: 2px;
+  }
+  .mode-btn {
+    padding: 9px 22px;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mode-btn.active { background: var(--accent-dev); color: #0b0e14; }
+  .mode-btn:hover:not(.active) { color: var(--text); }
+
+  /* ── MAIN LAYOUT ── */
+  .tool-wrap {
+    position: relative; z-index: 5;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 80px) 60px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.4s forwards;
+  }
+  @media (max-width: 920px) { .tool-wrap { grid-template-columns: 1fr; } }
+
+  /* ── PANEL ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .panel-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .copy-btn {
+    padding: 6px 13px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.76rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .copy-btn:hover { color: var(--text); border-color: rgba(79,255,176,0.4); }
+  .copy-btn.success { color: var(--accent-dev); border-color: rgba(79,255,176,0.4); }
+
+  /* ── ENCODED PANEL ── */
+  .encoded-textarea {
+    width: 100%;
+    min-height: 280px;
+    background: var(--bg);
+    border: none;
+    padding: 18px 20px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.9;
+    resize: none;
+    outline: none;
+    word-break: break-all;
+  }
+  .encoded-textarea::placeholder { color: var(--muted); }
+
+  .jwt-colored {
+    padding: 18px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.9;
+    word-break: break-all;
+    min-height: 280px;
+    background: var(--bg);
+    cursor: text;
+  }
+  .seg-header { color: var(--header-c); }
+  .seg-payload { color: var(--payload-c); }
+  .seg-sig { color: var(--sig-c); }
+  .seg-dot { color: var(--muted); }
+
+  .signature-status {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+  }
+  .sig-icon {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem;
+    flex-shrink: 0;
+  }
+  .sig-valid { color: var(--accent-dev); }
+  .sig-valid .sig-icon { background: rgba(79,255,176,0.15); }
+  .sig-invalid { color: var(--accent-img); }
+  .sig-invalid .sig-icon { background: rgba(255,140,66,0.15); }
+
+  /* ── DECODED PANEL ── */
+  .decoded-section {
+    border-bottom: 1px solid var(--border);
+  }
+  .decoded-section:last-child { border-bottom: none; }
+
+  .decoded-label {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px 10px;
+    gap: 10px;
+  }
+  .decoded-label-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 700;
+  }
+  .decoded-label.header .decoded-label-text { color: var(--header-c); }
+  .decoded-label.payload .decoded-label-text { color: var(--payload-c); }
+  .decoded-label.key .decoded-label-text { color: var(--sig-c); }
+
+  .alg-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.74rem;
+    outline: none;
+    cursor: pointer;
+  }
+  .alg-select:focus { border-color: rgba(255,93,143,0.5); }
+
+  .json-textarea {
+    width: 100%;
+    min-height: 140px;
+    background: var(--bg);
+    border: none;
+    padding: 0 20px 16px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.8rem;
+    line-height: 1.7;
+    resize: vertical;
+    outline: none;
+  }
+  .json-textarea.header-text { color: var(--header-c); min-height: 90px; }
+  .json-textarea.payload-text { color: var(--payload-c); min-height: 170px; }
+  .json-textarea.error { outline: 1px solid var(--accent-img); }
+
+  .key-input {
+    width: 100%;
+    background: var(--bg);
+    border: none;
+    padding: 0 20px 16px;
+    color: var(--sig-c);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    outline: none;
+  }
+  .key-input::placeholder { color: var(--muted); }
+
+  .signature-formula {
+    margin: 0 20px 16px;
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    line-height: 1.8;
+    color: var(--muted);
+  }
+  .signature-formula .f-header { color: var(--header-c); }
+  .signature-formula .f-payload { color: var(--payload-c); }
+  .signature-formula .f-key { color: var(--sig-c); }
+
+  /* ── INFO SECTION ── */
+  .section-divider {
+    position: relative; z-index: 5;
+    max-width: 1200px;
+    margin: 0 auto 32px;
+    padding: 0 clamp(20px,5vw,80px);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .section-divider::before, .section-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .info-section {
+    position: relative; z-index: 5;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 80px) 60px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.5s forwards;
+  }
+  @media (max-width: 920px) { .info-section { grid-template-columns: 1fr; } }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px;
+  }
+
+  .info-card h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+  }
+  .info-card h3 .h3-icon {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+  .info-card.c-header h3 .h3-icon { background: rgba(255,93,143,0.12); }
+  .info-card.c-payload h3 .h3-icon { background: rgba(123,143,255,0.12); }
+  .info-card.c-sig h3 .h3-icon { background: rgba(79,255,176,0.12); }
+
+  .info-card p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+
+  /* ── USE CASES / SECURITY ── */
+  .wide-section {
+    position: relative; z-index: 5;
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 80px) 80px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.6s forwards;
+  }
+  @media (max-width: 920px) { .wide-section { grid-template-columns: 1fr; } }
+
+  .wide-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+  .wide-card.warn { border-color: rgba(255,140,66,0.25); }
+
+  .wide-card h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .wide-card.warn h3 { color: var(--accent-img); }
+
+  .wide-card .sub {
+    margin-bottom: 14px;
+  }
+  .wide-card .sub:last-child { margin-bottom: 0; }
+  .wide-card .sub-title {
+    font-size: 0.88rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .wide-card .sub p {
+    font-size: 0.84rem;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  .risk-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+  .risk-list li {
+    font-size: 0.84rem;
+    color: var(--muted);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    line-height: 1.5;
+  }
+  .risk-list li::before { content: '⚠'; color: var(--accent-img); flex-shrink: 0; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    z-index: 100;
+    background: var(--surface2);
+    border: 1px solid rgba(79,255,176,0.3);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--accent-dev);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative; z-index: 5;
+    border-top: 1px solid var(--border);
+    padding: 32px clamp(20px,5vw,80px);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 16px;
+  }
+  footer p {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent-dev); }
+
+  @media (max-width: 640px) {
+    nav a { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#">Quick<span>Dev</span></a>
+  <nav>
+    <a href="#">Dev</a>
+    <a href="#">Images</a>
+    <a href="#">PDF</a>
+    <a class="badge-new" href="#">What's New &nbsp;7</a>
+  </nav>
+</header>
+
+<!-- BREADCRUMB -->
+<div class="breadcrumb">
+  <a href="#">Home</a>
+  <span>›</span>
+  <a href="#">Dev Tools</a>
+  <span>›</span>
+  <span>JWT Decoder</span>
+</div>
+
+<!-- PAGE HERO -->
+<div class="page-hero">
+  <div class="tool-badge">JWT Tool</div>
+  <h1>JWT <em>Decoder</em> </h1>
+  <p>
+    Decode JWTs for debugging, or build your own with a custom header, payload, and signing key.
+    Everything runs client-side — nothing is ever sent to a server.
+  </p>
+</div>
+
+<!-- MODE TOGGLE -->
+<div class="mode-bar">
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="btn-decode" onclick="setMode('decode')">Decode</button>
+    <button class="mode-btn" id="btn-encode" onclick="setMode('encode')">Encode</button>
+  </div>
+</div>
+
+<!-- TOOL -->
+<div class="tool-wrap">
+
+  <!-- ENCODED PANEL (left) -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">⬡ Encoded — JWT</span>
+      <button class="copy-btn" id="copy-jwt-btn" onclick="copyJWT()">
+        <span>⎘</span> Copy JWT
+      </button>
+    </div>
+    <div id="jwt-colored" class="jwt-colored" contenteditable="true" spellcheck="false" oninput="onJwtInput()"></div>
+    <div class="signature-status sig-valid" id="sig-status">
+      <span class="sig-icon">✓</span>
+      <span id="sig-status-text">Signature Verified!</span>
+    </div>
+  </div>
+
+  <!-- DECODED PANEL (right) -->
+  <div class="panel">
+
+    <div class="decoded-section">
+      <div class="decoded-label header">
+        <span class="decoded-label-text">Header</span>
+        <select class="alg-select" id="alg-select" onchange="onAlgChange()">
+          <option value="HS256">HS256</option>
+          <option value="HS384">HS384</option>
+          <option value="HS512">HS512</option>
+        </select>
+      </div>
+      <textarea class="json-textarea header-text" id="header-input" spellcheck="false" oninput="onDecodedInput()"></textarea>
+    </div>
+
+    <div class="decoded-section">
+      <div class="decoded-label payload">
+        <span class="decoded-label-text">Payload</span>
+      </div>
+      <textarea class="json-textarea payload-text" id="payload-input" spellcheck="false" oninput="onDecodedInput()"></textarea>
+    </div>
+
+    <div class="decoded-section">
+      <div class="decoded-label key">
+        <span class="decoded-label-text">Signing Key</span>
+      </div>
+      <input class="key-input" id="key-input" placeholder="your-256-bit-secret" oninput="onDecodedInput()">
+      <div class="signature-formula">
+        <span class="f-header" id="formula-alg">HMACSHA256(</span><br>
+        &nbsp;&nbsp;<span class="f-header">base64UrlEncode(header)</span> + "." +<br>
+        &nbsp;&nbsp;<span class="f-payload">base64UrlEncode(payload)</span>,<br>
+        &nbsp;&nbsp;<span class="f-key" id="formula-key">your-secret-key</span><br>
+        )
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<p style="position:relative;z-index:5;max-width:1200px;margin:-36px auto 56px;padding:0 clamp(20px,5vw,80px);font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted);line-height:1.6;">
+  <strong style="color:var(--text)">Note:</strong> We do not store any information — all encoding, decoding, and signature verification happens entirely in your browser.
+</p>
+
+<!-- WHAT ARE JWTS -->
+<div class="section-divider"><span class="section-label">Reference</span></div>
+<div class="info-section">
+
+  <div class="info-card c-header">
+    <h3><span class="h3-icon">①</span> Header</h3>
+    <p>Contains metadata about the token: the signing algorithm being used (e.g. HS256) and the token type, which is almost always "JWT".</p>
+  </div>
+
+  <div class="info-card c-payload">
+    <h3><span class="h3-icon">②</span> Payload</h3>
+    <p>Holds the claims — a JSON object encoded with Base64Url. Common claims include <code>iss</code>, <code>sub</code>, <code>aud</code>, <code>iat</code>, and <code>exp</code>.</p>
+  </div>
+
+  <div class="info-card c-sig">
+    <h3><span class="h3-icon">③</span> Signature</h3>
+    <p>A cryptographic string generated from the header and payload, used to verify the token hasn't been tampered with.</p>
+  </div>
+
+</div>
+
+<!-- USE CASES + SECURITY -->
+<div class="wide-section">
+
+  <div class="wide-card">
+    <h3>🔍 Common use cases</h3>
+    <div class="sub">
+      <div class="sub-title">Debugging authentication issues</div>
+      <p>Decoding reveals claims like exp, iss, aud, and roles — helping you spot expired tokens, wrong issuers, or missing permissions before they break a workflow.</p>
+    </div>
+    <div class="sub">
+      <div class="sub-title">Inspecting token claims</div>
+      <p>Developers decode access tokens at runtime to populate UI features or enforce backend access control based on roles and scopes.</p>
+    </div>
+  </div>
+
+  <div class="wide-card warn">
+    <h3>⚠️ Security considerations</h3>
+    <div class="sub">
+      <div class="sub-title">Signature verification</div>
+      <p>Never trust decoded data alone — always verify the signature to confirm a token wasn't forged or altered.</p>
+    </div>
+    <div class="sub">
+      <div class="sub-title">Risks of decoding unverified tokens</div>
+      <ul class="risk-list">
+        <li>Injection of false claims</li>
+        <li>Expired or replayed tokens</li>
+        <li>Forged user roles or escalated privileges</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✓ Copied to clipboard</div>
+
+<footer>
+  <p>© 2025 <a href="#">QuickDev</a> — All tools run client-side. Nothing is uploaded to a server.</p>
+  <p><a href="#">What's New →</a></p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsrsasign/10.8.6/jsrsasign-all-min.js"></script>
+<script>
+  let currentMode = 'decode';
+  let isUpdatingFromJwt = false;
+  let isUpdatingFromDecoded = false;
+
+  const defaultHeader = { alg: "HS256", typ: "JWT" };
+  const defaultPayload = {
+    sub: "1234567890",
+    name: "John Doe",
+    iat: 1700000000
+  };
+  const defaultKey = "your-256-bit-secret";
+
+  function base64UrlEncode(str) {
+    return btoa(unescape(encodeURIComponent(str)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function base64UrlDecode(str) {
+    str = str.replace(/-/g, '+').replace(/_/g, '/');
+    while (str.length % 4) str += '=';
+    return decodeURIComponent(escape(atob(str)));
+  }
+
+  function setMode(mode) {
+    currentMode = mode;
+    document.getElementById('btn-decode').classList.toggle('active', mode === 'decode');
+    document.getElementById('btn-encode').classList.toggle('active', mode === 'encode');
+    document.getElementById('jwt-colored').contentEditable = (mode === 'decode');
+  }
+
+  function renderColoredJWT(token) {
+    const parts = token.split('.');
+    const div = document.getElementById('jwt-colored');
+    if (parts.length !== 3) {
+      div.textContent = token;
+      return;
+    }
+    div.innerHTML =
+      `<span class="seg-header">${escapeHtml(parts[0])}</span>` +
+      `<span class="seg-dot">.</span>` +
+      `<span class="seg-payload">${escapeHtml(parts[1])}</span>` +
+      `<span class="seg-dot">.</span>` +
+      `<span class="seg-sig">${escapeHtml(parts[2])}</span>`;
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function buildJWT() {
+    let headerObj, payloadObj;
+    try { headerObj = JSON.parse(document.getElementById('header-input').value); }
+    catch { document.getElementById('header-input').classList.add('error'); return null; }
+    document.getElementById('header-input').classList.remove('error');
+
+    try { payloadObj = JSON.parse(document.getElementById('payload-input').value); }
+    catch { document.getElementById('payload-input').classList.add('error'); return null; }
+    document.getElementById('payload-input').classList.remove('error');
+
+    const key = document.getElementById('key-input').value || '';
+    const alg = headerObj.alg || 'HS256';
+
+    const headerB64 = base64UrlEncode(JSON.stringify(headerObj));
+    const payloadB64 = base64UrlEncode(JSON.stringify(payloadObj));
+    const signingInput = headerB64 + '.' + payloadB64;
+
+    let sigB64 = '';
+    try {
+      const hashAlg = alg === 'HS384' ? 'SHA384' : alg === 'HS512' ? 'SHA512' : 'SHA256';
+      const mac = new KJUR.crypto.Mac({ alg: 'Hmac' + hashAlg, prov: 'cryptojs', pass: { utf8: key } });
+      mac.updateString(signingInput);
+      const hex = mac.doFinal();
+      sigB64 = hexToBase64Url(hex);
+    } catch (e) {
+      sigB64 = '';
+    }
+
+    return signingInput + '.' + sigB64;
+  }
+
+  function hexToBase64Url(hex) {
+    let bytes = [];
+    for (let i = 0; i < hex.length; i += 2) bytes.push(parseInt(hex.substr(i, 2), 16));
+    let bin = '';
+    bytes.forEach(b => bin += String.fromCharCode(b));
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+
+  function updateFormulaDisplay() {
+    const key = document.getElementById('key-input').value;
+    const keyEl = document.getElementById('formula-key');
+    keyEl.textContent = key.length ? key : 'your-256-bit-secret';
+
+    let alg = 'HS256';
+    try {
+      const headerObj = JSON.parse(document.getElementById('header-input').value);
+      if (headerObj.alg) alg = headerObj.alg;
+    } catch {}
+    const hashAlg = alg === 'HS384' ? 'SHA384' : alg === 'HS512' ? 'SHA512' : 'SHA256';
+    document.getElementById('formula-alg').textContent = `HMAC${hashAlg}(`;
+  }
+
+  function onDecodedInput() {
+    if (isUpdatingFromJwt) return;
+    isUpdatingFromDecoded = true;
+    updateFormulaDisplay();
+    const jwt = buildJWT();
+    if (jwt) {
+      renderColoredJWT(jwt);
+      checkSignature(jwt);
+    }
+    isUpdatingFromDecoded = false;
+  }
+
+  function onJwtInput() {
+    if (isUpdatingFromDecoded) return;
+    isUpdatingFromJwt = true;
+    const text = document.getElementById('jwt-colored').innerText.trim();
+    const parts = text.split('.');
+    if (parts.length === 3) {
+      try {
+        const headerObj = JSON.parse(base64UrlDecode(parts[0]));
+        const payloadObj = JSON.parse(base64UrlDecode(parts[1]));
+        document.getElementById('header-input').value = JSON.stringify(headerObj, null, 2);
+        document.getElementById('payload-input').value = JSON.stringify(payloadObj, null, 2);
+        if (headerObj.alg) document.getElementById('alg-select').value = headerObj.alg;
+        updateFormulaDisplay();
+        checkSignature(text);
+      } catch (e) {
+        // invalid base64/json — leave decoded panels as-is
+      }
+    }
+    isUpdatingFromJwt = false;
+  }
+
+  function onAlgChange() {
+    try {
+      const headerObj = JSON.parse(document.getElementById('header-input').value);
+      headerObj.alg = document.getElementById('alg-select').value;
+      document.getElementById('header-input').value = JSON.stringify(headerObj, null, 2);
+      onDecodedInput();
+    } catch {}
+  }
+
+  function checkSignature(jwt) {
+    const parts = jwt.split('.');
+    if (parts.length !== 3) return;
+    const key = document.getElementById('key-input').value || '';
+    let headerObj;
+    try { headerObj = JSON.parse(base64UrlDecode(parts[0])); } catch { return; }
+    const alg = headerObj.alg || 'HS256';
+    const signingInput = parts[0] + '.' + parts[1];
+
+    try {
+      const hashAlg = alg === 'HS384' ? 'SHA384' : alg === 'HS512' ? 'SHA512' : 'SHA256';
+      const mac = new KJUR.crypto.Mac({ alg: 'Hmac' + hashAlg, prov: 'cryptojs', pass: { utf8: key } });
+      mac.updateString(signingInput);
+      const hex = mac.doFinal();
+      const expectedSig = hexToBase64Url(hex);
+
+      const statusEl = document.getElementById('sig-status');
+      const textEl = document.getElementById('sig-status-text');
+      if (expectedSig === parts[2]) {
+        statusEl.className = 'signature-status sig-valid';
+        statusEl.querySelector('.sig-icon').textContent = '✓';
+        textEl.textContent = 'Signature Verified!';
+      } else {
+        statusEl.className = 'signature-status sig-invalid';
+        statusEl.querySelector('.sig-icon').textContent = '✕';
+        textEl.textContent = 'Invalid Signature';
+      }
+    } catch (e) {
+      // jsrsasign not ready or error
+    }
+  }
+
+  function copyJWT() {
+    const jwt = document.getElementById('jwt-colored').innerText.trim();
+    if (!jwt) return;
+    navigator.clipboard.writeText(jwt).then(() => {
+      const btn = document.getElementById('copy-jwt-btn');
+      btn.classList.add('success');
+      btn.innerHTML = '<span>✓</span> Copied!';
+      showToast('✓ Copied JWT to clipboard');
+      setTimeout(() => {
+        btn.classList.remove('success');
+        btn.innerHTML = '<span>⎘</span> Copy JWT';
+      }, 2000);
+    });
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2600);
+  }
+
+  // Init with example data
+  window.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('header-input').value = JSON.stringify(defaultHeader, null, 2);
+    document.getElementById('payload-input').value = JSON.stringify(defaultPayload, null, 2);
+    document.getElementById('key-input').value = defaultKey;
+    onDecodedInput();
+  });
+</script>
+</body>
+</html>
