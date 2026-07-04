@@ -3,31 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Wire — a direct HTTP client</title>
+<title>QuickDev-API Tester</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --bg:#1C1B19;
-    --panel:#232220;
-    --panel-raised:#2A2825;
-    --border:#3A3733;
-    --border-soft:#2E2C29;
-    --text:#EDE8E0;
-    --text-dim:#9C948A;
-    --text-faint:#6E685F;
-    --accent:#FFB454;
-    --accent-dim:rgba(255,180,84,0.14);
-    --accent-dim2:rgba(255,180,84,0.3);
-    --ok:#7FB77E;
-    --ok-dim:rgba(127,183,126,0.14);
-    --err:#E0645A;
-    --err-dim:rgba(224,100,90,0.14);
-    --info:#6FA8DC;
-    --info-dim:rgba(111,168,220,0.14);
-    --mono:'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
-    --sans:'Inter', -apple-system, sans-serif;
-    --radius:6px;
+    --bg:#0b0e14;
+    --panel:#131720;
+    --panel-raised:#1a2030;
+    --border:#242c3d;
+    --border-soft:#1c2231;
+    --text:#e8edf5;
+    --text-dim:#a9b4c9;
+    --text-faint:#6b7a99;
+    --accent:#4fffb0;
+    --accent-dim:rgba(79,255,176,0.14);
+    --accent-dim2:rgba(79,255,176,0.35);
+    --ok:#4fffb0;
+    --ok-dim:rgba(79,255,176,0.14);
+    --err:#ff6b6b;
+    --err-dim:rgba(255,107,107,0.14);
+    --info:#7b8fff;
+    --info-dim:rgba(123,143,255,0.14);
+    --mono:'DM Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+    --sans:'Cabinet Grotesk', -apple-system, sans-serif;
+    --serif:'Fraunces', serif;
+    --radius:8px;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;}
@@ -36,12 +37,25 @@
     color:var(--text);
     font-family:var(--sans);
     min-height:100vh;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
-    background-size: 28px 28px;
+    position:relative;
   }
-  .app{max-width:1400px;margin:0 auto;padding:20px 24px 60px;}
+  body::before{
+    content:'';
+    position:fixed; inset:0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:0; opacity:0.4;
+  }
+  body::after{
+    content:'';
+    position:fixed; inset:0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size:48px 48px;
+    opacity:0.25;
+    pointer-events:none; z-index:0;
+  }
+  .app{max-width:1400px;margin:0 auto;padding:20px 24px 60px;position:relative;z-index:5;}
 
   /* ---------- Header ---------- */
   .topbar{
@@ -50,7 +64,13 @@
     border-bottom:1px solid var(--border-soft);
     flex-wrap:wrap;gap:10px;
   }
-  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand{display:flex;align-items:baseline;gap:14px;}
+  .back-link{
+    font-family:var(--mono); font-size:0.72rem; letter-spacing:0.05em;
+    color:var(--text-faint); text-decoration:none; text-transform:uppercase;
+    display:flex; align-items:center; gap:5px;
+  }
+  .back-link:hover{ color:var(--accent); }
   .led{
     width:9px;height:9px;border-radius:50%;
     background:var(--text-faint);
@@ -59,10 +79,11 @@
     transition:background .2s, box-shadow .2s;
   }
   .led.active{ background:var(--accent); box-shadow:0 0 8px 1px var(--accent-dim2); animation:pulse 1s infinite ease-in-out; }
-  .led.ok{ background:var(--ok); box-shadow:0 0 8px 1px rgba(127,183,126,0.5); animation:none; }
-  .led.err{ background:var(--err); box-shadow:0 0 8px 1px rgba(224,100,90,0.5); animation:none; }
+  .led.ok{ background:var(--ok); box-shadow:0 0 8px 1px rgba(79,255,176,0.5); animation:none; }
+  .led.err{ background:var(--err); box-shadow:0 0 8px 1px rgba(255,107,107,0.5); animation:none; }
   @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
-  .brand-name{font-family:var(--mono);font-weight:700;letter-spacing:0.14em;font-size:19px;}
+  .brand-name{font-family:var(--serif);font-weight:700;font-style:italic;letter-spacing:-0.01em;font-size:21px;}
+  .brand-name em{ color:var(--accent); font-style:italic; }
   .brand-tag{font-family:var(--mono);font-size:11px;color:var(--text-faint);letter-spacing:0.04em;}
   .privacy-note{font-size:12px;color:var(--text-faint);font-family:var(--mono);}
   .privacy-note strong{color:var(--text-dim);font-weight:500;}
@@ -105,6 +126,8 @@
   .relay-toggle input{ accent-color:var(--accent); width:15px; height:15px; }
   #relayUrl{ font-size:11.5px; padding:5px 8px; width:220px; flex-shrink:0; }
   #relayUrl:disabled{ opacity:0.4; }
+  #relayKey{ font-size:11.5px; padding:5px 8px; width:150px; flex-shrink:0; }
+  #relayKey:disabled{ opacity:0.4; }
   .relay-status{ font-family:var(--mono); font-size:11px; white-space:nowrap; }
   .relay-status.ok{ color:var(--ok); }
   .relay-status.err{ color:var(--err); }
@@ -259,9 +282,10 @@
 
   <div class="topbar">
     <div class="brand">
+      <a class="back-link" href="index.html">← QuickDev</a>
       <span class="led" id="led"></span>
-      <span class="brand-name">QuickDev</span>
-      <span class="brand-tag">a direct HTTP client</span>
+      <span class="brand-name">API <em>Tester</em></span>
+      <span class="brand-tag">every method, header &amp; auth type — nothing saved</span>
     </div>
     <div class="privacy-note"><strong>Nothing is saved.</strong> No history, no accounts. Requests go straight to your URL, or through a relay that only runs on your own machine if you turn that on.</div>
   </div>
@@ -279,9 +303,10 @@
   <div class="relay-bar">
     <label class="relay-toggle">
       <input type="checkbox" id="relayToggle">
-      <span>Route through local relay</span>
+      <span>Route through relay</span>
     </label>
-    <input type="text" id="relayUrl" value="http://localhost:7890/relay" spellcheck="false">
+    <input type="text" id="relayUrl" value="http://localhost:7890/relay" spellcheck="false" title="Relay URL">
+    <input type="password" id="relayKey" placeholder="relay key (if set)" spellcheck="false" title="Only needed if the relay was started with RELAY_KEY">
     <span class="relay-status" id="relayStatus"></span>
     <span class="relay-help">bypasses CORS entirely, and enables real client-certificate mTLS — <a href="#" id="relayHowto">how to run it</a></span>
   </div>
@@ -309,7 +334,7 @@
           <div class="preset-row">
             <span class="preset-chip" data-h="Content-Type|application/json">Content-Type: json</span>
             <span class="preset-chip" data-h="Accept|application/json">Accept: json</span>
-            <span class="preset-chip" data-h="User-Agent|Wire/1.0">User-Agent</span>
+            <span class="preset-chip" data-h="User-Agent|QuickDev-APITester/1.0">User-Agent</span>
           </div>
           <div id="headersRows"></div>
           <button class="add-row-btn" id="addHeaderRow">+ add header</button>
@@ -406,7 +431,7 @@
 
   </main>
 
-  <footer class="appfoot">WIRE keeps no logs, no history, no accounts. Every request goes straight from your browser to the URL you typed.</footer>
+  <footer class="appfoot">Part of QuickDev — keeps no logs, no history, no accounts. Every request goes straight from your browser to the URL you typed.</footer>
 </div>
 
 <script>
@@ -739,28 +764,41 @@
     return lines.join(' \\\n');
   }
 
-  // ---------------- Relay (optional local companion that bypasses CORS) ----------------
+  // ---------------- Relay (optional companion that bypasses CORS) ----------------
   const relayToggle = document.getElementById('relayToggle');
   const relayUrlInput = document.getElementById('relayUrl');
+  const relayKeyInput = document.getElementById('relayKey');
   const relayStatus = document.getElementById('relayStatus');
 
-  const RELAY_SCRIPT = atob("IyEvdXNyL2Jpbi9lbnYgbm9kZQovKioKICogV2lyZSByZWxheSDigJQgYSB0aW55IGxvY2FsIGNvbXBhbmlvbiBmb3Igd2lyZS5odG1sLgogKgogKiBXaHkgdGhpcyBleGlzdHM6CiAqIEJyb3dzZXJzIGJsb2NrIGNyb3NzLW9yaWdpbiByZXF1ZXN0cyAoQ09SUykgYW5kIG5ldmVyIGxldCBKYXZhU2NyaXB0IGF0dGFjaAogKiBhIGNsaWVudCBjZXJ0aWZpY2F0ZSB0byBhIHJlcXVlc3Qg4oCUIGJvdGggYXJlIGVuZm9yY2VkIGJlbG93IHRoZSBwYWdlLCBhbmQKICogbm8gYnJvd3Nlci1iYXNlZCB0b29sIGNhbiBvdmVycmlkZSBlaXRoZXIgb25lLiBUaGlzIHJlbGF5IGlzIGEgcGxhaW4KICogTm9kZS5qcyBwcm9jZXNzIHRoYXQgbWFrZXMgdGhlIHJlYWwgSFRUUCBjYWxsIGl0c2VsZiwgb3V0c2lkZSB0aGUgYnJvd3NlciwKICogd2hlcmUgbmVpdGhlciByZXN0cmljdGlvbiBhcHBsaWVzIChDT1JTIGlzIGEgYnJvd3NlciBydWxlLCBub3QgYW4gSFRUUAogKiBydWxlIOKAlCBzZXJ2ZXJzIHRhbGtpbmcgdG8gc2VydmVycyB3ZXJlIG5ldmVyIHN1YmplY3QgdG8gaXQpLgogKgogKiBJdCBzdG9yZXMgbm90aGluZy4gRXZlcnkgcmVxdWVzdCBpcyBmb3J3YXJkZWQgYW5kIGZvcmdvdHRlbiDigJQgbm90aGluZyBpcwogKiB3cml0dGVuIHRvIGRpc2ssIG5vdGhpbmcgaXMgY2FjaGVkLCBub3RoaW5nIGlzIGxvZ2dlZCBleGNlcHQgYSBvbmUtbGluZQogKiAibWV0aG9kICsgdXJsICsgc3RhdHVzIiBub3RlIHRvIHlvdXIgb3duIHRlcm1pbmFsIHNvIHlvdSBjYW4gc2VlIGl0IHdvcmtpbmcuCiAqCiAqIFVzYWdlOgogKiAgIG5vZGUgcmVsYXkuanMgICAgICAgICAgICAjIGxpc3RlbnMgb24gaHR0cDovL2xvY2FsaG9zdDo3ODkwCiAqICAgUE9SVD04MDgwIG5vZGUgcmVsYXkuanMgICMgb3IgcGljayB5b3VyIG93biBwb3J0CiAqLwoKY29uc3QgaHR0cCA9IHJlcXVpcmUoJ2h0dHAnKTsKY29uc3QgaHR0cHMgPSByZXF1aXJlKCdodHRwcycpOwpjb25zdCB7IFVSTCB9ID0gcmVxdWlyZSgndXJsJyk7Cgpjb25zdCBQT1JUID0gcHJvY2Vzcy5lbnYuUE9SVCB8fCA3ODkwOwoKZnVuY3Rpb24gc2V0Q29ycyhyZXMpIHsKICByZXMuc2V0SGVhZGVyKCdBY2Nlc3MtQ29udHJvbC1BbGxvdy1PcmlnaW4nLCAnKicpOwogIHJlcy5zZXRIZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LU1ldGhvZHMnLCAnR0VULCBQT1NULCBPUFRJT05TJyk7CiAgcmVzLnNldEhlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctSGVhZGVycycsICdDb250ZW50LVR5cGUnKTsKfQoKZnVuY3Rpb24gcmVhZEJvZHkocmVxKSB7CiAgcmV0dXJuIG5ldyBQcm9taXNlKChyZXNvbHZlLCByZWplY3QpID0+IHsKICAgIGxldCBjaHVua3MgPSBbXTsKICAgIHJlcS5vbignZGF0YScsIGMgPT4gY2h1bmtzLnB1c2goYykpOwogICAgcmVxLm9uKCdlbmQnLCAoKSA9PiByZXNvbHZlKEJ1ZmZlci5jb25jYXQoY2h1bmtzKS50b1N0cmluZygndXRmOCcpKSk7CiAgICByZXEub24oJ2Vycm9yJywgcmVqZWN0KTsKICB9KTsKfQoKZnVuY3Rpb24gcmVsYXlSZXF1ZXN0KHBheWxvYWQpIHsKICByZXR1cm4gbmV3IFByb21pc2UoKHJlc29sdmUpID0+IHsKICAgIGxldCB0YXJnZXQ7CiAgICB0cnkgewogICAgICB0YXJnZXQgPSBuZXcgVVJMKHBheWxvYWQudXJsKTsKICAgIH0gY2F0Y2ggKGUpIHsKICAgICAgcmV0dXJuIHJlc29sdmUoeyBlcnJvcjogJ0ludmFsaWQgVVJMOiAnICsgcGF5bG9hZC51cmwgfSk7CiAgICB9CgogICAgY29uc3QgaXNIdHRwcyA9IHRhcmdldC5wcm90b2NvbCA9PT0gJ2h0dHBzOic7CiAgICBjb25zdCBsaWIgPSBpc0h0dHBzID8gaHR0cHMgOiBodHRwOwoKICAgIGNvbnN0IG9wdGlvbnMgPSB7CiAgICAgIG1ldGhvZDogcGF5bG9hZC5tZXRob2QgfHwgJ0dFVCcsCiAgICAgIGhvc3RuYW1lOiB0YXJnZXQuaG9zdG5hbWUsCiAgICAgIHBvcnQ6IHRhcmdldC5wb3J0IHx8IChpc0h0dHBzID8gNDQzIDogODApLAogICAgICBwYXRoOiB0YXJnZXQucGF0aG5hbWUgKyB0YXJnZXQuc2VhcmNoLAogICAgICBoZWFkZXJzOiBPYmplY3QuYXNzaWduKHt9LCBwYXlsb2FkLmhlYWRlcnMgfHwge30pLAogICAgICAvLyBSZWFzb25hYmxlIGNlaWxpbmcgc28gYSBodW5nIHNlcnZlciBjYW4ndCBibG9jayB0aGUgcmVsYXkgZm9yZXZlci4KICAgICAgdGltZW91dDogMzAwMDAsCiAgICB9OwoKICAgIC8vIFJlYWwgbXV0dWFsIFRMUzogYXR0YWNoIHRoZSBjbGllbnQgY2VydC9rZXkgZGlyZWN0bHkgdG8gdGhpcyBvdXRib3VuZAogICAgLy8gVExTIGNvbm5lY3Rpb24uIFRoaXMgaXMgZXhhY3RseSB3aGF0IGEgYnJvd3NlciBjYW4gbmV2ZXIgZG8gZnJvbSBKUy4KICAgIGlmIChpc0h0dHBzICYmIChwYXlsb2FkLmNlcnQgfHwgcGF5bG9hZC5rZXkpKSB7CiAgICAgIG9wdGlvbnMuY2VydCA9IHBheWxvYWQuY2VydCB8fCB1bmRlZmluZWQ7CiAgICAgIG9wdGlvbnMua2V5ID0gcGF5bG9hZC5rZXkgfHwgdW5kZWZpbmVkOwogICAgICBpZiAocGF5bG9hZC5wYXNzcGhyYXNlKSBvcHRpb25zLnBhc3NwaHJhc2UgPSBwYXlsb2FkLnBhc3NwaHJhc2U7CiAgICAgIC8vIFN0aWxsIHZlcmlmaWVzIHRoZSBzZXJ2ZXIncyBjZXJ0aWZpY2F0ZSBub3JtYWxseSAoc2VjdXJlIGJ5IGRlZmF1bHQpLgogICAgfQoKICAgIGNvbnN0IG91dFJlcSA9IGxpYi5yZXF1ZXN0KG9wdGlvbnMsIChvdXRSZXMpID0+IHsKICAgICAgbGV0IGNodW5rcyA9IFtdOwogICAgICBvdXRSZXMub24oJ2RhdGEnLCBjID0+IGNodW5rcy5wdXNoKGMpKTsKICAgICAgb3V0UmVzLm9uKCdlbmQnLCAoKSA9PiB7CiAgICAgICAgY29uc3QgYnVmID0gQnVmZmVyLmNvbmNhdChjaHVua3MpOwogICAgICAgIGNvbnN0IGNvbnRlbnRUeXBlID0gb3V0UmVzLmhlYWRlcnNbJ2NvbnRlbnQtdHlwZSddIHx8ICcnOwogICAgICAgIGNvbnN0IGlzVGV4dCA9IC9qc29ufHRleHR8eG1sfGh0bWx8amF2YXNjcmlwdHx1cmxlbmNvZGVkLy50ZXN0KGNvbnRlbnRUeXBlKSB8fCBidWYubGVuZ3RoID09PSAwOwogICAgICAgIHJlc29sdmUoewogICAgICAgICAgc3RhdHVzOiBvdXRSZXMuc3RhdHVzQ29kZSwKICAgICAgICAgIHN0YXR1c1RleHQ6IG91dFJlcy5zdGF0dXNNZXNzYWdlIHx8ICcnLAogICAgICAgICAgaGVhZGVyczogb3V0UmVzLmhlYWRlcnMsCiAgICAgICAgICBib2R5SXNCYXNlNjQ6ICFpc1RleHQsCiAgICAgICAgICBib2R5OiBpc1RleHQgPyBidWYudG9TdHJpbmcoJ3V0ZjgnKSA6IGJ1Zi50b1N0cmluZygnYmFzZTY0JyksCiAgICAgICAgfSk7CiAgICAgIH0pOwogICAgfSk7CgogICAgb3V0UmVxLm9uKCd0aW1lb3V0JywgKCkgPT4gewogICAgICBvdXRSZXEuZGVzdHJveSgpOwogICAgICByZXNvbHZlKHsgZXJyb3I6ICdUaW1lZCBvdXQgd2FpdGluZyBmb3IgdGhlIHRhcmdldCBzZXJ2ZXIuJyB9KTsKICAgIH0pOwoKICAgIG91dFJlcS5vbignZXJyb3InLCAoZXJyKSA9PiB7CiAgICAgIHJlc29sdmUoeyBlcnJvcjogZXJyLm1lc3NhZ2UgfSk7CiAgICB9KTsKCiAgICBpZiAocGF5bG9hZC5ib2R5ICYmICFbJ0dFVCcsICdIRUFEJ10uaW5jbHVkZXMoKHBheWxvYWQubWV0aG9kIHx8ICdHRVQnKS50b1VwcGVyQ2FzZSgpKSkgewogICAgICBvdXRSZXEud3JpdGUocGF5bG9hZC5ib2R5KTsKICAgIH0KICAgIG91dFJlcS5lbmQoKTsKICB9KTsKfQoKY29uc3Qgc2VydmVyID0gaHR0cC5jcmVhdGVTZXJ2ZXIoYXN5bmMgKHJlcSwgcmVzKSA9PiB7CiAgc2V0Q29ycyhyZXMpOwoKICBpZiAocmVxLm1ldGhvZCA9PT0gJ09QVElPTlMnKSB7CiAgICByZXMud3JpdGVIZWFkKDIwNCk7CiAgICByZXR1cm4gcmVzLmVuZCgpOwogIH0KCiAgaWYgKHJlcS5tZXRob2QgPT09ICdHRVQnICYmIHJlcS51cmwgPT09ICcvaGVhbHRoJykgewogICAgcmVzLndyaXRlSGVhZCgyMDAsIHsgJ0NvbnRlbnQtVHlwZSc6ICdhcHBsaWNhdGlvbi9qc29uJyB9KTsKICAgIHJldHVybiByZXMuZW5kKEpTT04uc3RyaW5naWZ5KHsgb2s6IHRydWUgfSkpOwogIH0KCiAgaWYgKHJlcS5tZXRob2QgPT09ICdQT1NUJyAmJiByZXEudXJsID09PSAnL3JlbGF5JykgewogICAgdHJ5IHsKICAgICAgY29uc3QgcmF3ID0gYXdhaXQgcmVhZEJvZHkocmVxKTsKICAgICAgY29uc3QgcGF5bG9hZCA9IEpTT04ucGFyc2UocmF3KTsKICAgICAgY29uc3QgcmVzdWx0ID0gYXdhaXQgcmVsYXlSZXF1ZXN0KHBheWxvYWQpOwogICAgICBjb25zb2xlLmxvZyhgW3JlbGF5XSAke3BheWxvYWQubWV0aG9kIHx8ICdHRVQnfSAke3BheWxvYWQudXJsfSAtPiAke3Jlc3VsdC5zdGF0dXMgfHwgJ0VSUk9SOiAnICsgcmVzdWx0LmVycm9yfWApOwogICAgICByZXMud3JpdGVIZWFkKDIwMCwgeyAnQ29udGVudC1UeXBlJzogJ2FwcGxpY2F0aW9uL2pzb24nIH0pOwogICAgICByZXR1cm4gcmVzLmVuZChKU09OLnN0cmluZ2lmeShyZXN1bHQpKTsKICAgIH0gY2F0Y2ggKGUpIHsKICAgICAgcmVzLndyaXRlSGVhZCg0MDAsIHsgJ0NvbnRlbnQtVHlwZSc6ICdhcHBsaWNhdGlvbi9qc29uJyB9KTsKICAgICAgcmV0dXJuIHJlcy5lbmQoSlNPTi5zdHJpbmdpZnkoeyBlcnJvcjogJ0JhZCByZXF1ZXN0OiAnICsgZS5tZXNzYWdlIH0pKTsKICAgIH0KICB9CgogIHJlcy53cml0ZUhlYWQoNDA0LCB7ICdDb250ZW50LVR5cGUnOiAnYXBwbGljYXRpb24vanNvbicgfSk7CiAgcmVzLmVuZChKU09OLnN0cmluZ2lmeSh7IGVycm9yOiAnTm90IGZvdW5kLiBQT1NUIHRvIC9yZWxheSBvciBHRVQgL2hlYWx0aC4nIH0pKTsKfSk7CgpzZXJ2ZXIubGlzdGVuKFBPUlQsICgpID0+IHsKICBjb25zb2xlLmxvZyhgV2lyZSByZWxheSBsaXN0ZW5pbmcgb24gaHR0cDovL2xvY2FsaG9zdDoke1BPUlR9YCk7CiAgY29uc29sZS5sb2coJ05vdGhpbmcgaXMgbG9nZ2VkIGV4Y2VwdCBtZXRob2QgKyBVUkwgKyBzdGF0dXMuIEN0cmwrQyB0byBzdG9wLicpOwp9KTsK");
+  const RELAY_SCRIPT = atob("IyEvdXNyL2Jpbi9lbnYgbm9kZQovKioKICogUXVpY2tEZXYgQVBJIFRlc3RlciByZWxheSDigJQgYSBzbWFsbCBjb21wYW5pb24gc2VydmVyIGZvciBhcGktdGVzdGVyLmh0bWwuCiAqCiAqIFdoeSB0aGlzIGV4aXN0czoKICogQnJvd3NlcnMgYmxvY2sgY3Jvc3Mtb3JpZ2luIHJlcXVlc3RzIChDT1JTKSBhbmQgbmV2ZXIgbGV0IEphdmFTY3JpcHQgYXR0YWNoCiAqIGEgY2xpZW50IGNlcnRpZmljYXRlIHRvIGEgcmVxdWVzdCDigJQgYm90aCBhcmUgZW5mb3JjZWQgYmVsb3cgdGhlIHBhZ2UsIGFuZAogKiBubyBicm93c2VyLWJhc2VkIHRvb2wgY2FuIG92ZXJyaWRlIGVpdGhlciBvbmUuIFRoaXMgcmVsYXkgaXMgYSBwbGFpbgogKiBOb2RlLmpzIHByb2Nlc3MgdGhhdCBtYWtlcyB0aGUgcmVhbCBIVFRQIGNhbGwgaXRzZWxmLCBvdXRzaWRlIHRoZSBicm93c2VyLAogKiB3aGVyZSBuZWl0aGVyIHJlc3RyaWN0aW9uIGFwcGxpZXMgKENPUlMgaXMgYSBicm93c2VyIHJ1bGUsIG5vdCBhbiBIVFRQCiAqIHJ1bGUg4oCUIHNlcnZlcnMgdGFsa2luZyB0byBzZXJ2ZXJzIHdlcmUgbmV2ZXIgc3ViamVjdCB0byBpdCkuCiAqCiAqIEl0IHN0b3JlcyBub3RoaW5nLiBFdmVyeSByZXF1ZXN0IGlzIGZvcndhcmRlZCBhbmQgZm9yZ290dGVuIOKAlCBub3RoaW5nIGlzCiAqIHdyaXR0ZW4gdG8gZGlzaywgbm90aGluZyBpcyBjYWNoZWQsIG5vdGhpbmcgaXMgbG9nZ2VkIGV4Y2VwdCBhIG9uZS1saW5lCiAqICJtZXRob2QgKyB1cmwgKyBzdGF0dXMiIG5vdGUgdG8geW91ciBvd24gdGVybWluYWwgc28geW91IGNhbiBzZWUgaXQgd29ya2luZy4KICoKICogVHdvIHdheXMgdG8gcnVuIHRoaXM6CiAqCiAqIExPQ0FMIChkZWZhdWx0LCBzYWZlc3QpOgogKiAgIG5vZGUgcmVsYXkuanMKICogICAtPiBodHRwOi8vbG9jYWxob3N0Ojc4OTAg4oCUIG9ubHkgcmVhY2hhYmxlIGZyb20geW91ciBvd24gbWFjaGluZS4KICoKICogUFVCTElDIChzbyBhcGktdGVzdGVyLmh0bWwgd29ya3MgZm9yIGFueW9uZSB3aXRob3V0IHRoZW0gcnVubmluZyBhbnl0aGluZyk6CiAqICAgRGVwbG95IHRoaXMgZmlsZSB0byBhIHNtYWxsIGFsd2F5cy1vbiBob3N0IChSZW5kZXIsIFJhaWx3YXksIEZseS5pbywgeW91cgogKiAgIG93biBWUFMg4oCUIEdpdEh1YiBQYWdlcyBDQU5OT1QgcnVuIHRoaXMsIGl0IG9ubHkgc2VydmVzIHN0YXRpYyBmaWxlcykuCiAqICAgT25jZSBpdCdzIHB1YmxpYywgYW55b25lIHdobyBoYXMgdGhlIFVSTCBjYW4gdXNlIGl0IGFzIGFuIG9wZW4gcHJveHksIHNvCiAqICAgc2V0IGEgc2hhcmVkIHNlY3JldCBhbmQgbG9jayB0aGUgb3JpZ2luIGRvd246CiAqCiAqICAgUkVMQVlfS0VZPXNvbWUtbG9uZy1yYW5kb20tc3RyaW5nIEFMTE9XRURfT1JJR0lOPWh0dHBzOi8veW91LmdpdGh1Yi5pbyBQT1JUPTEwMDAwIG5vZGUgcmVsYXkuanMKICoKICogICBUaGVuIGluIGFwaS10ZXN0ZXIuaHRtbCdzIHJlbGF5IHNldHRpbmdzLCBzZXQgdGhlIHJlbGF5IFVSTCB0byB5b3VyCiAqICAgZGVwbG95ZWQgaHR0cHM6Ly8gYWRkcmVzcyBhbmQgcGFzdGUgdGhlIHNhbWUga2V5IGludG8gIlJlbGF5IGtleSIuCiAqICAgUmVxdWVzdHMgd2l0aG91dCB0aGUgbWF0Y2hpbmcga2V5IGFyZSByZWplY3RlZCBiZWZvcmUgYW55dGhpbmcgaXMKICogICBmb3J3YXJkZWQuCiAqCiAqICAgQSBub3RlIG9uIGNsaWVudCBjZXJ0aWZpY2F0ZXMgc3BlY2lmaWNhbGx5OiBpZiB5b3UgcnVuIHRoZSByZWxheQogKiAgIHB1YmxpY2x5IGFuZCB1c2UgaXQgZm9yIG11dHVhbCBUTFMsIHlvdXIgcHJpdmF0ZSBrZXkgdHJhdmVscyBvdmVyIHRoZQogKiAgIHdpcmUgdG8gdGhhdCBob3N0IChwcm90ZWN0ZWQgYnkgSFRUUFMgaW4gdHJhbnNpdCwgYnV0IHZpc2libGUgdG8KICogICB3aGF0ZXZlciBwcm9jZXNzIGhhbmRsZXMgaXQgdGhlcmUpIHJhdGhlciB0aGFuIHN0YXlpbmcgb24geW91ciBsYXB0b3AuCiAqICAgRm9yIGFueXRoaW5nIHlvdSdkIGNhbGwgc2Vuc2l0aXZlLCBydW5uaW5nIHRoZSByZWxheSBsb2NhbGx5IGlzIHRoZQogKiAgIHNhZmVyIGNob2ljZSDigJQgcmVzZXJ2ZSBhIHB1YmxpYyByZWxheSBmb3IgdGhlIENPUlMtYnlwYXNzIHVzZSBjYXNlCiAqICAgKGhlYWRlcnMvYXV0aC9ib2R5KSwgbm90IGZvciBjZXJ0aWZpY2F0ZXMgeW91IGNhcmUgYWJvdXQuCiAqLwoKY29uc3QgaHR0cCA9IHJlcXVpcmUoJ2h0dHAnKTsKY29uc3QgaHR0cHMgPSByZXF1aXJlKCdodHRwcycpOwpjb25zdCB7IFVSTCB9ID0gcmVxdWlyZSgndXJsJyk7CmNvbnN0IGNyeXB0byA9IHJlcXVpcmUoJ2NyeXB0bycpOwoKY29uc3QgUE9SVCA9IHByb2Nlc3MuZW52LlBPUlQgfHwgNzg5MDsKY29uc3QgUkVMQVlfS0VZID0gcHJvY2Vzcy5lbnYuUkVMQVlfS0VZIHx8IG51bGw7ICAgICAgIC8vIHNldCB0aGlzIHRvIHJlcXVpcmUgYSBzaGFyZWQgc2VjcmV0CmNvbnN0IEFMTE9XRURfT1JJR0lOID0gcHJvY2Vzcy5lbnYuQUxMT1dFRF9PUklHSU4gfHwgJyonOyAvLyBsb2NrIHRoaXMgdG8geW91ciBkZXBsb3llZCBzaXRlJ3Mgb3JpZ2luCgpmdW5jdGlvbiB0aW1pbmdTYWZlRXF1YWwoYSwgYikgewogIGNvbnN0IGJ1ZkEgPSBCdWZmZXIuZnJvbShTdHJpbmcoYSkpOwogIGNvbnN0IGJ1ZkIgPSBCdWZmZXIuZnJvbShTdHJpbmcoYikpOwogIGlmIChidWZBLmxlbmd0aCAhPT0gYnVmQi5sZW5ndGgpIHJldHVybiBmYWxzZTsKICByZXR1cm4gY3J5cHRvLnRpbWluZ1NhZmVFcXVhbChidWZBLCBidWZCKTsKfQoKZnVuY3Rpb24gc2V0Q29ycyhyZXMpIHsKICByZXMuc2V0SGVhZGVyKCdBY2Nlc3MtQ29udHJvbC1BbGxvdy1PcmlnaW4nLCBBTExPV0VEX09SSUdJTik7CiAgcmVzLnNldEhlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctTWV0aG9kcycsICdHRVQsIFBPU1QsIE9QVElPTlMnKTsKICByZXMuc2V0SGVhZGVyKCdBY2Nlc3MtQ29udHJvbC1BbGxvdy1IZWFkZXJzJywgJ0NvbnRlbnQtVHlwZSwgWC1SZWxheS1LZXknKTsKfQoKZnVuY3Rpb24gcmVhZEJvZHkocmVxKSB7CiAgcmV0dXJuIG5ldyBQcm9taXNlKChyZXNvbHZlLCByZWplY3QpID0+IHsKICAgIGxldCBjaHVua3MgPSBbXTsKICAgIHJlcS5vbignZGF0YScsIGMgPT4gY2h1bmtzLnB1c2goYykpOwogICAgcmVxLm9uKCdlbmQnLCAoKSA9PiByZXNvbHZlKEJ1ZmZlci5jb25jYXQoY2h1bmtzKS50b1N0cmluZygndXRmOCcpKSk7CiAgICByZXEub24oJ2Vycm9yJywgcmVqZWN0KTsKICB9KTsKfQoKZnVuY3Rpb24gcmVsYXlSZXF1ZXN0KHBheWxvYWQpIHsKICByZXR1cm4gbmV3IFByb21pc2UoKHJlc29sdmUpID0+IHsKICAgIGxldCB0YXJnZXQ7CiAgICB0cnkgewogICAgICB0YXJnZXQgPSBuZXcgVVJMKHBheWxvYWQudXJsKTsKICAgIH0gY2F0Y2ggKGUpIHsKICAgICAgcmV0dXJuIHJlc29sdmUoeyBlcnJvcjogJ0ludmFsaWQgVVJMOiAnICsgcGF5bG9hZC51cmwgfSk7CiAgICB9CgogICAgY29uc3QgaXNIdHRwcyA9IHRhcmdldC5wcm90b2NvbCA9PT0gJ2h0dHBzOic7CiAgICBjb25zdCBsaWIgPSBpc0h0dHBzID8gaHR0cHMgOiBodHRwOwoKICAgIGNvbnN0IG9wdGlvbnMgPSB7CiAgICAgIG1ldGhvZDogcGF5bG9hZC5tZXRob2QgfHwgJ0dFVCcsCiAgICAgIGhvc3RuYW1lOiB0YXJnZXQuaG9zdG5hbWUsCiAgICAgIHBvcnQ6IHRhcmdldC5wb3J0IHx8IChpc0h0dHBzID8gNDQzIDogODApLAogICAgICBwYXRoOiB0YXJnZXQucGF0aG5hbWUgKyB0YXJnZXQuc2VhcmNoLAogICAgICBoZWFkZXJzOiBPYmplY3QuYXNzaWduKHt9LCBwYXlsb2FkLmhlYWRlcnMgfHwge30pLAogICAgICAvLyBSZWFzb25hYmxlIGNlaWxpbmcgc28gYSBodW5nIHNlcnZlciBjYW4ndCBibG9jayB0aGUgcmVsYXkgZm9yZXZlci4KICAgICAgdGltZW91dDogMzAwMDAsCiAgICB9OwoKICAgIC8vIFJlYWwgbXV0dWFsIFRMUzogYXR0YWNoIHRoZSBjbGllbnQgY2VydC9rZXkgZGlyZWN0bHkgdG8gdGhpcyBvdXRib3VuZAogICAgLy8gVExTIGNvbm5lY3Rpb24uIFRoaXMgaXMgZXhhY3RseSB3aGF0IGEgYnJvd3NlciBjYW4gbmV2ZXIgZG8gZnJvbSBKUy4KICAgIGlmIChpc0h0dHBzICYmIChwYXlsb2FkLmNlcnQgfHwgcGF5bG9hZC5rZXkpKSB7CiAgICAgIG9wdGlvbnMuY2VydCA9IHBheWxvYWQuY2VydCB8fCB1bmRlZmluZWQ7CiAgICAgIG9wdGlvbnMua2V5ID0gcGF5bG9hZC5rZXkgfHwgdW5kZWZpbmVkOwogICAgICBpZiAocGF5bG9hZC5wYXNzcGhyYXNlKSBvcHRpb25zLnBhc3NwaHJhc2UgPSBwYXlsb2FkLnBhc3NwaHJhc2U7CiAgICAgIC8vIFN0aWxsIHZlcmlmaWVzIHRoZSBzZXJ2ZXIncyBjZXJ0aWZpY2F0ZSBub3JtYWxseSAoc2VjdXJlIGJ5IGRlZmF1bHQpLgogICAgfQoKICAgIGNvbnN0IG91dFJlcSA9IGxpYi5yZXF1ZXN0KG9wdGlvbnMsIChvdXRSZXMpID0+IHsKICAgICAgbGV0IGNodW5rcyA9IFtdOwogICAgICBvdXRSZXMub24oJ2RhdGEnLCBjID0+IGNodW5rcy5wdXNoKGMpKTsKICAgICAgb3V0UmVzLm9uKCdlbmQnLCAoKSA9PiB7CiAgICAgICAgY29uc3QgYnVmID0gQnVmZmVyLmNvbmNhdChjaHVua3MpOwogICAgICAgIGNvbnN0IGNvbnRlbnRUeXBlID0gb3V0UmVzLmhlYWRlcnNbJ2NvbnRlbnQtdHlwZSddIHx8ICcnOwogICAgICAgIGNvbnN0IGlzVGV4dCA9IC9qc29ufHRleHR8eG1sfGh0bWx8amF2YXNjcmlwdHx1cmxlbmNvZGVkLy50ZXN0KGNvbnRlbnRUeXBlKSB8fCBidWYubGVuZ3RoID09PSAwOwogICAgICAgIHJlc29sdmUoewogICAgICAgICAgc3RhdHVzOiBvdXRSZXMuc3RhdHVzQ29kZSwKICAgICAgICAgIHN0YXR1c1RleHQ6IG91dFJlcy5zdGF0dXNNZXNzYWdlIHx8ICcnLAogICAgICAgICAgaGVhZGVyczogb3V0UmVzLmhlYWRlcnMsCiAgICAgICAgICBib2R5SXNCYXNlNjQ6ICFpc1RleHQsCiAgICAgICAgICBib2R5OiBpc1RleHQgPyBidWYudG9TdHJpbmcoJ3V0ZjgnKSA6IGJ1Zi50b1N0cmluZygnYmFzZTY0JyksCiAgICAgICAgfSk7CiAgICAgIH0pOwogICAgfSk7CgogICAgb3V0UmVxLm9uKCd0aW1lb3V0JywgKCkgPT4gewogICAgICBvdXRSZXEuZGVzdHJveSgpOwogICAgICByZXNvbHZlKHsgZXJyb3I6ICdUaW1lZCBvdXQgd2FpdGluZyBmb3IgdGhlIHRhcmdldCBzZXJ2ZXIuJyB9KTsKICAgIH0pOwoKICAgIG91dFJlcS5vbignZXJyb3InLCAoZXJyKSA9PiB7CiAgICAgIHJlc29sdmUoeyBlcnJvcjogZXJyLm1lc3NhZ2UgfSk7CiAgICB9KTsKCiAgICBpZiAocGF5bG9hZC5ib2R5ICYmICFbJ0dFVCcsICdIRUFEJ10uaW5jbHVkZXMoKHBheWxvYWQubWV0aG9kIHx8ICdHRVQnKS50b1VwcGVyQ2FzZSgpKSkgewogICAgICBvdXRSZXEud3JpdGUocGF5bG9hZC5ib2R5KTsKICAgIH0KICAgIG91dFJlcS5lbmQoKTsKICB9KTsKfQoKY29uc3Qgc2VydmVyID0gaHR0cC5jcmVhdGVTZXJ2ZXIoYXN5bmMgKHJlcSwgcmVzKSA9PiB7CiAgc2V0Q29ycyhyZXMpOwoKICBpZiAocmVxLm1ldGhvZCA9PT0gJ09QVElPTlMnKSB7CiAgICByZXMud3JpdGVIZWFkKDIwNCk7CiAgICByZXR1cm4gcmVzLmVuZCgpOwogIH0KCiAgaWYgKHJlcS5tZXRob2QgPT09ICdHRVQnICYmIHJlcS51cmwgPT09ICcvaGVhbHRoJykgewogICAgcmVzLndyaXRlSGVhZCgyMDAsIHsgJ0NvbnRlbnQtVHlwZSc6ICdhcHBsaWNhdGlvbi9qc29uJyB9KTsKICAgIHJldHVybiByZXMuZW5kKEpTT04uc3RyaW5naWZ5KHsgb2s6IHRydWUsIGtleVJlcXVpcmVkOiAhIVJFTEFZX0tFWSB9KSk7CiAgfQoKICBpZiAocmVxLm1ldGhvZCA9PT0gJ1BPU1QnICYmIHJlcS51cmwgPT09ICcvcmVsYXknKSB7CiAgICBpZiAoUkVMQVlfS0VZKSB7CiAgICAgIGNvbnN0IHByb3ZpZGVkID0gcmVxLmhlYWRlcnNbJ3gtcmVsYXkta2V5J107CiAgICAgIGlmICghcHJvdmlkZWQgfHwgIXRpbWluZ1NhZmVFcXVhbChwcm92aWRlZCwgUkVMQVlfS0VZKSkgewogICAgICAgIHJlcy53cml0ZUhlYWQoNDAxLCB7ICdDb250ZW50LVR5cGUnOiAnYXBwbGljYXRpb24vanNvbicgfSk7CiAgICAgICAgcmV0dXJuIHJlcy5lbmQoSlNPTi5zdHJpbmdpZnkoeyBlcnJvcjogJ01pc3Npbmcgb3IgaW5jb3JyZWN0IHJlbGF5IGtleS4nIH0pKTsKICAgICAgfQogICAgfQogICAgdHJ5IHsKICAgICAgY29uc3QgcmF3ID0gYXdhaXQgcmVhZEJvZHkocmVxKTsKICAgICAgY29uc3QgcGF5bG9hZCA9IEpTT04ucGFyc2UocmF3KTsKICAgICAgY29uc3QgcmVzdWx0ID0gYXdhaXQgcmVsYXlSZXF1ZXN0KHBheWxvYWQpOwogICAgICBjb25zb2xlLmxvZyhgW3JlbGF5XSAke3BheWxvYWQubWV0aG9kIHx8ICdHRVQnfSAke3BheWxvYWQudXJsfSAtPiAke3Jlc3VsdC5zdGF0dXMgfHwgJ0VSUk9SOiAnICsgcmVzdWx0LmVycm9yfWApOwogICAgICByZXMud3JpdGVIZWFkKDIwMCwgeyAnQ29udGVudC1UeXBlJzogJ2FwcGxpY2F0aW9uL2pzb24nIH0pOwogICAgICByZXR1cm4gcmVzLmVuZChKU09OLnN0cmluZ2lmeShyZXN1bHQpKTsKICAgIH0gY2F0Y2ggKGUpIHsKICAgICAgcmVzLndyaXRlSGVhZCg0MDAsIHsgJ0NvbnRlbnQtVHlwZSc6ICdhcHBsaWNhdGlvbi9qc29uJyB9KTsKICAgICAgcmV0dXJuIHJlcy5lbmQoSlNPTi5zdHJpbmdpZnkoeyBlcnJvcjogJ0JhZCByZXF1ZXN0OiAnICsgZS5tZXNzYWdlIH0pKTsKICAgIH0KICB9CgogIHJlcy53cml0ZUhlYWQoNDA0LCB7ICdDb250ZW50LVR5cGUnOiAnYXBwbGljYXRpb24vanNvbicgfSk7CiAgcmVzLmVuZChKU09OLnN0cmluZ2lmeSh7IGVycm9yOiAnTm90IGZvdW5kLiBQT1NUIHRvIC9yZWxheSBvciBHRVQgL2hlYWx0aC4nIH0pKTsKfSk7CgpzZXJ2ZXIubGlzdGVuKFBPUlQsICgpID0+IHsKICBjb25zb2xlLmxvZyhgUmVsYXkgbGlzdGVuaW5nIG9uIGh0dHA6Ly9sb2NhbGhvc3Q6JHtQT1JUfWApOwogIGlmIChSRUxBWV9LRVkpIGNvbnNvbGUubG9nKCdSZWxheSBrZXkgcmVxdWlyZWQg4oCUIHJlcXVlc3RzIG11c3Qgc2VuZCBpdCBpbiB0aGUgWC1SZWxheS1LZXkgaGVhZGVyLicpOwogIGVsc2UgY29uc29sZS5sb2coJ05vIHJlbGF5IGtleSBzZXQg4oCUIGZpbmUgZm9yIGxvY2FsIHVzZSwgZG8gTk9UIGRlcGxveSB0aGlzIHB1YmxpY2x5IHdpdGhvdXQgc2V0dGluZyBSRUxBWV9LRVkuJyk7CiAgY29uc29sZS5sb2coJ05vdGhpbmcgaXMgbG9nZ2VkIGV4Y2VwdCBtZXRob2QgKyBVUkwgKyBzdGF0dXMuIEN0cmwrQyB0byBzdG9wLicpOwp9KTsK");
 
   relayUrlInput.disabled = true;
+  relayKeyInput.disabled = true;
   relayToggle.addEventListener('change', async ()=>{
     relayUrlInput.disabled = !relayToggle.checked;
+    relayKeyInput.disabled = !relayToggle.checked;
     if(relayToggle.checked) await checkRelay();
     else relayStatus.textContent = '';
   });
   relayUrlInput.addEventListener('change', ()=>{ if(relayToggle.checked) checkRelay(); });
+  relayKeyInput.addEventListener('change', ()=>{ if(relayToggle.checked) checkRelay(); });
 
   async function checkRelay(){
     relayStatus.textContent = 'checking…';
     relayStatus.className = 'relay-status';
     try{
       const base = relayUrlInput.value.replace(/\/relay\/?$/, '');
-      const res = await fetch(base + '/health', { signal: AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined });
-      if(res.ok){ relayStatus.textContent = '● relay reachable'; relayStatus.className = 'relay-status ok'; }
+      const res = await fetch(base + '/health', { signal: AbortSignal.timeout ? AbortSignal.timeout(4000) : undefined });
+      if(res.ok){
+        const data = await res.json().catch(()=>({}));
+        if(data.keyRequired && !relayKeyInput.value.trim()){
+          relayStatus.textContent = '● reachable, needs a key';
+          relayStatus.className = 'relay-status err';
+        } else {
+          relayStatus.textContent = '● relay reachable';
+          relayStatus.className = 'relay-status ok';
+        }
+      }
       else { relayStatus.textContent = '● relay responded oddly'; relayStatus.className = 'relay-status err'; }
     } catch(e){
       relayStatus.textContent = '● not reachable — is it running?';
@@ -776,17 +814,31 @@
   function showRelayModal(){
     const backdrop = el('div',{class:'relay-modal-backdrop'});
     const modal = el('div',{class:'relay-modal'});
-    modal.appendChild(el('h3',{text:'Running the local relay'}));
-    modal.appendChild(el('p',{text:'This is a small, dependency-free Node.js script that makes the outbound request from your machine instead of the browser — so CORS never enters the picture, and it can attach a real client certificate for mutual TLS. It does not log or store request or response contents; the only thing printed to your terminal is "method + URL + status".'}));
+    modal.appendChild(el('h3',{text:'Running the relay'}));
+    modal.appendChild(el('p',{text:'This is a small, dependency-free Node.js script that makes the outbound request itself instead of the browser — so CORS never enters the picture, and it can attach a real client certificate for mutual TLS. It does not log or store request or response contents; the only thing printed to its terminal is "method + URL + status".'}));
+
     const p2 = el('p',{});
-    p2.appendChild(document.createTextNode('1. Save the file below as '));
-    p2.appendChild(el('code',{text:'relay.js'}));
+    p2.innerHTML = '<strong>For your own local testing:</strong> save the file below as <code>relay.js</code> and run <code>node relay.js</code>. Then come back here, turn the toggle on, and send your request — the default URL (localhost:7890) already matches.';
     modal.appendChild(p2);
+
+    const p3 = el('p',{});
+    p3.innerHTML = '<strong>To make this automatic for everyone using this page</strong> (e.g. after deploying to GitHub Pages): GitHub Pages only serves static files, so it can\'t run this script itself. Deploy this same file to a small always-on host instead — Render, Railway, and Fly.io all have free tiers, or use your own server. Once deployed, set a shared secret so the public URL can\'t be used by strangers as an open proxy:';
+    modal.appendChild(p3);
+
+    const pre2 = el('pre',{text: 'RELAY_KEY=some-long-random-string \\\nALLOWED_ORIGIN=https://yourname.github.io \\\nPORT=10000 node relay.js'});
+    modal.appendChild(pre2);
+
+    const p4 = el('p',{});
+    p4.innerHTML = 'Then edit the two defaults near the top of <code>api-tester.html</code> — the relay URL input\'s starting value and, optionally, pre-fill the relay key — so visitors get a working relay without touching any settings.';
+    modal.appendChild(p4);
+
+    const p5 = el('p',{});
+    p5.innerHTML = '<strong>One thing worth knowing:</strong> if you use a public relay for client certificates, the private key travels to that host rather than staying on your machine. That\'s fine for a server you fully control, but worth pausing on before pointing a shared/free host at a certificate you\'d call sensitive.';
+    modal.appendChild(p5);
+
     const pre = el('pre',{text: RELAY_SCRIPT});
     modal.appendChild(pre);
-    const p3 = el('p',{});
-    p3.innerHTML = '2. Run it: <code>node relay.js</code><br>3. Come back here, turn the toggle on, and send your request.';
-    modal.appendChild(p3);
+
     const btnRow = el('div',{style:'display:flex;gap:8px;'});
     const dlBtn = el('button',{class:'btn btn-primary', text:'Download relay.js'});
     dlBtn.addEventListener('click', ()=>downloadText('relay.js', RELAY_SCRIPT));
@@ -807,9 +859,12 @@
       key: state.cert.keyPem.trim() || null,
       passphrase: state.cert.certPass.trim() || null,
     };
+    const reqHeaders = {'Content-Type':'application/json'};
+    if(relayKeyInput.value.trim()) reqHeaders['X-Relay-Key'] = relayKeyInput.value.trim();
     const res = await fetch(relayUrlInput.value, {
-      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+      method:'POST', headers:reqHeaders, body: JSON.stringify(payload)
     });
+    if(res.status === 401){ throw new Error('Relay rejected the request — missing or wrong relay key.'); }
     const data = await res.json();
     if(data.error) throw new Error(data.error);
     return data;
