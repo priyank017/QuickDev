@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIFF to Image Converter — QuickDev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/utif@3.1.0/UTIF.js"></script>
+<style>
+  :root{
+    --bg:#0b0e14;
+    --surface:#131720;
+    --surface2:#1a2030;
+    --border:#242c3d;
+    --border-soft:#1c2231;
+    --text:#e8edf5;
+    --muted:#6b7a99;
+    --text-dim:#a9b4c9;
+    --accent:#ff8c42;
+    --accent-dim:rgba(255,140,66,0.14);
+    --accent-dim2:rgba(255,140,66,0.35);
+    --ok:#4fffb0;
+    --ok-dim:rgba(79,255,176,0.14);
+    --err:#ff6b6b;
+    --err-dim:rgba(255,107,107,0.14);
+    --mono:'DM Mono', ui-monospace, monospace;
+    --sans:'Cabinet Grotesk', -apple-system, sans-serif;
+    --serif:'Fraunces', serif;
+    --radius:10px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--sans);
+    min-height:100vh; position:relative;
+  }
+  body::before{
+    content:''; position:fixed; inset:0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events:none; z-index:0; opacity:0.4;
+  }
+  body::after{
+    content:''; position:fixed; inset:0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size:48px 48px; opacity:0.25; pointer-events:none; z-index:0;
+  }
+  .app{max-width:1200px;margin:0 auto;padding:0 24px 70px;position:relative;z-index:5;}
+
+  /* ---------- Site header (matches index.html site-wide) ---------- */
+  header.site{
+    position: sticky; top: 0; z-index: 20;
+    margin: 0 -24px 22px;
+    padding: 0 clamp(20px, 5vw, 80px);
+    height: 64px;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,14,20,0.8);
+    backdrop-filter: blur(12px);
+  }
+  header.site .logo{
+    font-family: 'Fraunces', serif; font-size: 1.25rem; font-weight: 700;
+    letter-spacing: -0.02em; color: var(--text); text-decoration: none;
+  }
+  header.site .logo span{ color: var(--ok); }
+  header.site nav{ display: flex; gap: 8px; align-items: center; }
+  header.site nav a{
+    font-size: 0.8rem; font-weight: 500; color: var(--muted); text-decoration: none;
+    padding: 6px 14px; border-radius: 6px; letter-spacing: 0.03em; text-transform: uppercase;
+    transition: color 0.2s, background 0.2s; font-family: var(--sans);
+  }
+  header.site nav a:hover{ color: var(--text); background: var(--surface2); }
+  header.site .badge-new{
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.72rem; font-family: 'DM Mono', monospace;
+    background: rgba(79,255,176,0.1); color: var(--ok);
+    border: 1px solid rgba(79,255,176,0.3);
+    padding: 5px 12px; border-radius: 100px; text-decoration: none; transition: background 0.2s;
+  }
+  header.site .badge-new::before{ content: '●'; font-size: 0.5rem; animation: headerPulse 2s infinite; }
+  @keyframes headerPulse{ 0%,100%{opacity:1} 50%{opacity:0.3} }
+  header.site .badge-new:hover{ background: rgba(79,255,176,0.2); }
+
+  /* ---------- Page title ---------- */
+  .page-title{
+    display:flex;align-items:center;justify-content:space-between;
+    padding-bottom:16px;margin-bottom:22px;border-bottom:1px solid var(--border-soft);
+    flex-wrap:wrap;gap:10px;
+  }
+  .brand{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;}
+  .brand-name{font-family:var(--serif);font-weight:700;font-style:italic;font-size:21px;letter-spacing:-0.01em;}
+  .brand-name em{ color:var(--accent); font-style:italic; }
+  .brand-tag{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:0.03em;}
+  .privacy-note{font-size:12px;color:var(--muted);font-family:var(--mono);max-width:420px;text-align:right;}
+  .privacy-note strong{color:var(--text-dim);font-weight:500;}
+  @media (max-width:760px){ .privacy-note{text-align:left;max-width:100%;} }
+
+  /* ---------- Library warning ---------- */
+  .lib-warning{
+    display:none; background:var(--err-dim); border:1px solid rgba(255,107,107,0.35);
+    border-radius:var(--radius); padding:12px 16px; font-size:12.5px; color:var(--text);
+    margin-bottom:16px; line-height:1.6;
+  }
+  .lib-warning strong{ color:var(--err); }
+
+  /* ---------- Dropzone ---------- */
+  .dropzone{
+    border:1.5px dashed var(--border); border-radius:14px; padding:44px 20px;
+    text-align:center; cursor:pointer; transition:border-color .15s, background .15s;
+    background:var(--surface);
+  }
+  .dropzone:hover, .dropzone.dragover{ border-color:var(--accent-dim2); background:var(--surface2); }
+  .dropzone-icon{ font-size:30px; margin-bottom:10px; opacity:0.8; }
+  .dropzone-title{ font-family:var(--serif); font-size:18px; font-weight:700; margin-bottom:4px; }
+  .dropzone-sub{ font-family:var(--mono); font-size:12px; color:var(--muted); }
+  .dropzone input[type=file]{ display:none; }
+
+  /* ---------- Settings panel ---------- */
+  .settings{
+    display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:18px;
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    padding:18px 20px;
+  }
+  @media (max-width:760px){ .settings{ grid-template-columns:1fr; } }
+  .settings-col h3{
+    font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:0.08em;
+    color:var(--muted); margin:0 0 12px;
+  }
+  .field-row{ display:flex; align-items:center; gap:10px; margin-bottom:10px; flex-wrap:wrap; }
+  .field-row label{ font-size:13px; color:var(--text-dim); min-width:110px; }
+  select{
+    background:var(--surface2); border:1px solid var(--border); color:var(--text);
+    border-radius:6px; padding:7px 9px; font-family:var(--mono); font-size:12.5px; outline:none;
+  }
+  select:focus{ border-color:var(--accent-dim2); }
+  input[type=range]{ accent-color:var(--accent); flex:1; min-width:120px; }
+  .quality-val{ font-family:var(--mono); font-size:12.5px; color:var(--accent); min-width:34px; text-align:right; }
+  .help-text{ font-size:11.5px; color:var(--muted); line-height:1.5; margin:4px 0 0; }
+  .checkbox-row{ display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+  .checkbox-row input{ accent-color:var(--accent); width:15px; height:15px; }
+  .checkbox-row label{ font-size:13px; color:var(--text-dim); cursor:pointer; }
+
+  /* ---------- Toolbar / summary ---------- */
+  .toolbar{
+    display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px;
+    margin-top:18px; padding:12px 16px; background:var(--surface); border:1px solid var(--border);
+    border-radius:var(--radius);
+  }
+  .summary{ font-family:var(--mono); font-size:12.5px; color:var(--text-dim); }
+  .summary b{ color:var(--ok); }
+  .toolbar-btns{ display:flex; gap:8px; flex-wrap:wrap; }
+  .btn{
+    font-family:var(--sans); font-weight:600; font-size:13px; border-radius:8px; border:1px solid transparent;
+    padding:9px 16px; cursor:pointer; transition:filter .15s, background .15s; white-space:nowrap;
+  }
+  .btn-primary{ background:var(--accent); color:#160d06; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-primary:disabled{ background:var(--border); color:var(--muted); cursor:not-allowed; }
+  .btn-ghost{ background:transparent; border-color:var(--border); color:var(--text-dim); }
+  .btn-ghost:hover{ border-color:var(--muted); color:var(--text); }
+
+  /* ---------- Image list ---------- */
+  .empty-state{ text-align:center; padding:40px 20px; color:var(--muted); font-family:var(--mono); font-size:12.5px; }
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(300px,1fr)); gap:14px; margin-top:16px; }
+  .item{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
+    overflow:hidden; display:flex; flex-direction:column;
+  }
+  .item-thumb{ position:relative; width:100%; aspect-ratio:16/10; background:var(--bg); overflow:hidden; display:flex; align-items:center; justify-content:center; }
+  .item-thumb img, .item-thumb canvas{ width:100%; height:100%; object-fit:contain; display:block; }
+  .item-thumb .placeholder{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .item-remove{
+    position:absolute; top:6px; right:6px; background:rgba(11,14,20,0.75); border:1px solid var(--border);
+    color:var(--text-dim); border-radius:50%; width:24px; height:24px; cursor:pointer; font-size:13px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .item-remove:hover{ color:var(--err); border-color:var(--err-dim); }
+  .item-body{ padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+  .item-name{ font-size:12.5px; color:var(--text); word-break:break-all; font-weight:500; }
+  .item-stats{ display:flex; align-items:center; gap:8px; font-family:var(--mono); font-size:11.5px; color:var(--muted); flex-wrap:wrap; }
+  .item-status{ font-family:var(--mono); font-size:11px; color:var(--muted); }
+  .item-actions{ display:flex; gap:8px; margin-top:2px; }
+  .item-actions a, .item-actions button{
+    flex:1; text-align:center; text-decoration:none; font-family:var(--sans); font-weight:600;
+    font-size:12px; padding:7px 10px; border-radius:6px; border:1px solid var(--border);
+    color:var(--text-dim); background:var(--surface2); cursor:pointer;
+  }
+  .item-actions a.primary{ background:var(--accent); color:#160d06; border-color:transparent; }
+  .item-actions a.disabled{ opacity:0.4; pointer-events:none; }
+
+  footer.appfoot{ margin-top:34px; text-align:center; color:var(--muted); font-family:var(--mono); font-size:11.5px; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <a class="logo" href="index.html">Quick<span>Dev</span></a>
+  <nav>
+    <a href="index.html#dev">Dev</a>
+    <a href="index.html#img">Images</a>
+    <a href="index.html#pdf">PDF</a>
+    <a class="badge-new" href="https://www.testing.com/whats-new">What's New &nbsp;7</a>
+  </nav>
+</header>
+
+<div class="app">
+
+  <div class="page-title">
+    <div class="brand">
+      <span class="brand-name">TIFF to <em>Image</em></span>
+      <span class="brand-tag">convert TIFF files to JPEG, PNG or WebP</span>
+    </div>
+    <div class="privacy-note"><strong>Nothing is uploaded.</strong> TIFF files are decoded and converted right in your browser — files never leave your device.</div>
+  </div>
+
+  <div class="lib-warning" id="libWarning">
+    <strong>The TIFF decoder didn't load.</strong> This tool depends on a small external library fetched from a CDN — if your network blocks it, TIFF files can't be decoded. Try refreshing, or check your connection/ad-blocker.
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <div class="dropzone-icon">🗂</div>
+    <div class="dropzone-title">Drop TIFF files here, or click to browse</div>
+    <div class="dropzone-sub">.tif / .tiff — multi-page files are split into one image per page</div>
+    <input type="file" id="fileInput" accept=".tif,.tiff,image/tiff" multiple>
+  </div>
+
+  <div class="settings">
+    <div class="settings-col">
+      <h3>Output</h3>
+      <div class="field-row">
+        <label>Format</label>
+        <select id="formatSelect">
+          <option value="image/jpeg">JPEG</option>
+          <option value="image/png">PNG</option>
+          <option value="image/webp">WebP</option>
+        </select>
+      </div>
+      <p class="help-text" id="formatHelp">JPEG is the most compatible choice and is what most TIFF-to-JPG converters produce by default.</p>
+    </div>
+
+    <div class="settings-col">
+      <h3>Quality</h3>
+      <div class="field-row">
+        <label>Level</label>
+        <input type="range" id="qualitySlider" min="1" max="100" value="92">
+        <span class="quality-val" id="qualityVal">92%</span>
+      </div>
+      <p class="help-text" id="qualityHelp">Applies to JPEG and WebP output. PNG is always lossless, so this has no effect on it.</p>
+    </div>
+  </div>
+
+  <div class="toolbar" id="toolbar" style="display:none;">
+    <div class="summary" id="summary"></div>
+    <div class="toolbar-btns">
+      <button class="btn btn-ghost" id="reprocessBtn">Re-convert all</button>
+      <button class="btn btn-ghost" id="clearBtn">Clear all</button>
+      <button class="btn btn-primary" id="downloadZipBtn">Download all (ZIP)</button>
+    </div>
+  </div>
+
+  <div class="empty-state" id="emptyState">— no files yet — drop a TIFF above to get started —</div>
+  <div class="grid" id="grid"></div>
+
+  <footer class="appfoot">Part of QuickDev — files are decoded and converted locally in your browser and never uploaded anywhere.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  let items = [];   // {id, sourceName, pageIndex, pageCount, width, height, rgba, outputBlob, outputUrl, outputMime, status}
+  let idCounter = 0;
+  let reprocessTimer = null;
+
+  const dropzone = document.getElementById('dropzone');
+  const fileInput = document.getElementById('fileInput');
+  const grid = document.getElementById('grid');
+  const emptyState = document.getElementById('emptyState');
+  const toolbar = document.getElementById('toolbar');
+  const summary = document.getElementById('summary');
+  const libWarning = document.getElementById('libWarning');
+
+  const formatSelect = document.getElementById('formatSelect');
+  const formatHelp = document.getElementById('formatHelp');
+  const qualitySlider = document.getElementById('qualitySlider');
+  const qualityVal = document.getElementById('qualityVal');
+
+  if(typeof UTIF === 'undefined'){
+    libWarning.style.display = 'block';
+  }
+
+  // ---------------- Drop zone ----------------
+  dropzone.addEventListener('click', ()=> fileInput.click());
+  fileInput.addEventListener('change', ()=> addFiles(fileInput.files));
+  ['dragenter','dragover'].forEach(evt=>{
+    dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.add('dragover'); });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    dropzone.addEventListener(evt, e=>{ e.preventDefault(); dropzone.classList.remove('dragover'); });
+  });
+  dropzone.addEventListener('drop', e=>{
+    if(e.dataTransfer.files && e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
+  });
+
+  function isTiff(file){
+    return /\.tiff?$/i.test(file.name) || file.type === 'image/tiff';
+  }
+
+  async function addFiles(fileList){
+    if(typeof UTIF === 'undefined'){ libWarning.style.display = 'block'; return; }
+    const files = Array.from(fileList).filter(isTiff);
+    if(files.length === 0) return;
+
+    for(const file of files){
+      const groupId = 'src'+(idCounter++);
+      let buffer, ifds;
+      try{
+        buffer = await file.arrayBuffer();
+        ifds = UTIF.decode(buffer);
+      } catch(e){
+        addErrorCard(file.name, "couldn't parse this file — it may not be a valid TIFF");
+        continue;
+      }
+      if(!ifds || ifds.length === 0){
+        addErrorCard(file.name, 'no image data found in this file');
+        continue;
+      }
+      ifds.forEach((ifd, pageIndex)=>{
+        const id = groupId+'-p'+pageIndex;
+        const item = {
+          id, sourceName: file.name, pageIndex, pageCount: ifds.length,
+          buffer, ifd, width:null, height:null,
+          outputBlob:null, outputUrl:null, outputMime:null, status:'queued'
+        };
+        items.push(item);
+        renderItem(item);
+      });
+    }
+    updateEmptyState();
+    items.filter(i=>i.status==='queued').forEach(processItem);
+    fileInput.value = '';
+  }
+
+  function addErrorCard(name, message){
+    const id = 'err'+(idCounter++);
+    const item = { id, sourceName:name, pageIndex:0, pageCount:1, status:'error', errorMessage:message };
+    items.push(item);
+    renderItem(item);
+    updateItemUI(item);
+    updateEmptyState();
+  }
+
+  function updateEmptyState(){
+    emptyState.style.display = items.length ? 'none' : 'block';
+    toolbar.style.display = items.length ? 'flex' : 'none';
+  }
+
+  // ---------------- Settings ----------------
+  formatSelect.addEventListener('change', ()=>{
+    const isPng = formatSelect.value === 'image/png';
+    qualitySlider.disabled = isPng;
+    formatHelp.textContent =
+      formatSelect.value === 'image/jpeg' ? 'JPEG is the most compatible choice and is what most TIFF-to-JPG converters produce by default.' :
+      formatSelect.value === 'image/webp' ? 'WebP is smaller than JPEG at the same quality, with broad modern browser support.' :
+      'PNG keeps every pixel exactly — larger files, no quality loss.';
+    scheduleReprocessAll();
+  });
+  qualitySlider.addEventListener('input', ()=>{ qualityVal.textContent = qualitySlider.value+'%'; scheduleReprocessAll(); });
+
+  function scheduleReprocessAll(){
+    clearTimeout(reprocessTimer);
+    reprocessTimer = setTimeout(()=> items.filter(i=>i.status!=='error').forEach(processItem), 250);
+  }
+  document.getElementById('reprocessBtn').addEventListener('click', ()=> items.filter(i=>i.status!=='error').forEach(processItem));
+
+  // ---------------- Core TIFF decode + convert ----------------
+  function processItem(item){
+    item.status = 'processing';
+    updateItemUI(item);
+
+    try{
+      UTIF.decodeImage(item.buffer, item.ifd);
+      const rgba = UTIF.toRGBA8(item.ifd);
+      const w = item.ifd.width, h = item.ifd.height;
+      item.width = w; item.height = h;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      const imgData = ctx.createImageData(w, h);
+      imgData.data.set(rgba);
+      ctx.putImageData(imgData, 0, 0);
+
+      const mime = formatSelect.value;
+      const quality = mime === 'image/png' ? undefined : (+qualitySlider.value)/100;
+
+      canvas.toBlob((blob)=>{
+        if(!blob){ item.status = 'error'; item.errorMessage = "couldn't encode this page"; updateItemUI(item); return; }
+        if(item.outputUrl) URL.revokeObjectURL(item.outputUrl);
+        item.outputBlob = blob;
+        item.outputUrl = URL.createObjectURL(blob);
+        item.outputMime = mime;
+        item.status = 'done';
+        updateItemUI(item);
+        updateSummary();
+      }, mime, quality);
+    } catch(e){
+      item.status = 'error';
+      item.errorMessage = "couldn't decode this page — the compression type may not be supported";
+      updateItemUI(item);
+    }
+  }
+
+  // ---------------- Rendering ----------------
+  function extForMime(mime){
+    return mime==='image/jpeg' ? 'jpg' : mime==='image/webp' ? 'webp' : 'png';
+  }
+  function baseName(filename){
+    const dot = filename.lastIndexOf('.');
+    return dot > 0 ? filename.slice(0, dot) : filename;
+  }
+  function formatBytes(n){
+    if(n < 1024) return n + ' B';
+    if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+    return (n/(1024*1024)).toFixed(2) + ' MB';
+  }
+  function outputName(item, ext){
+    const base = baseName(item.sourceName);
+    return item.pageCount > 1 ? `${base}-page${item.pageIndex+1}.${ext}` : `${base}.${ext}`;
+  }
+
+  function renderItem(item){
+    const card = document.createElement('div');
+    card.className = 'item';
+    card.id = 'card-'+item.id;
+    const label = item.pageCount > 1 ? `${item.sourceName} — page ${item.pageIndex+1} of ${item.pageCount}` : item.sourceName;
+    card.innerHTML = `
+      <div class="item-thumb"><span class="placeholder">decoding…</span></div>
+      <div class="item-body">
+        <div class="item-name">${escapeHtml(label)}</div>
+        <div class="item-stats result-row"><span class="item-status">queued…</span></div>
+        <div class="item-actions">
+          <a class="disabled" href="#" download>Download</a>
+          <button class="remove-btn2">Remove</button>
+        </div>
+      </div>
+    `;
+    card.querySelector('.remove-btn2').addEventListener('click', ()=> removeItem(item.id));
+    grid.prepend(card);
+  }
+
+  function escapeHtml(s){
+    const d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+  }
+
+  function updateItemUI(item){
+    const card = document.getElementById('card-'+item.id);
+    if(!card) return;
+    const resultRow = card.querySelector('.result-row');
+    const actionLink = card.querySelector('.item-actions a');
+    const thumb = card.querySelector('.item-thumb');
+
+    if(item.status === 'processing'){
+      resultRow.innerHTML = `<span class="item-status">decoding &amp; converting…</span>`;
+      return;
+    }
+    if(item.status === 'error'){
+      thumb.innerHTML = `<span class="placeholder" style="color:var(--err);">⚠</span>`;
+      resultRow.innerHTML = `<span class="item-status" style="color:var(--err);">${escapeHtml(item.errorMessage || 'failed')}</span>`;
+      return;
+    }
+    if(item.status === 'done'){
+      thumb.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = item.outputUrl;
+      thumb.appendChild(img);
+      resultRow.innerHTML = `<span>${item.width}×${item.height} · ${formatBytes(item.outputBlob.size)}</span>`;
+      const ext = extForMime(item.outputMime);
+      actionLink.href = item.outputUrl;
+      actionLink.download = outputName(item, ext);
+      actionLink.classList.remove('disabled');
+      actionLink.classList.add('primary');
+    }
+  }
+
+  function removeItem(id){
+    const idx = items.findIndex(i=>i.id===id);
+    if(idx === -1) return;
+    const item = items[idx];
+    if(item.outputUrl) URL.revokeObjectURL(item.outputUrl);
+    items.splice(idx,1);
+    const card = document.getElementById('card-'+id);
+    if(card) card.remove();
+    updateEmptyState();
+    updateSummary();
+  }
+
+  document.getElementById('clearBtn').addEventListener('click', ()=>{
+    if(items.length && !confirm('Remove all files from this page?')) return;
+    items.forEach(item=>{ if(item.outputUrl) URL.revokeObjectURL(item.outputUrl); });
+    items = [];
+    grid.innerHTML = '';
+    updateEmptyState();
+    updateSummary();
+  });
+
+  function updateSummary(){
+    const done = items.filter(i=>i.status==='done');
+    const errored = items.filter(i=>i.status==='error');
+    if(items.length === 0){ summary.textContent = ''; return; }
+    summary.innerHTML = `<b>${done.length}</b> converted${errored.length ? `, ${errored.length} failed` : ''} of ${items.length} total`;
+  }
+
+  // ---------------- Bulk ZIP download ----------------
+  document.getElementById('downloadZipBtn').addEventListener('click', async ()=>{
+    const done = items.filter(i=>i.status==='done');
+    if(done.length === 0){ alert('Nothing to download yet — add a TIFF file first.'); return; }
+    const btn = document.getElementById('downloadZipBtn');
+    const orig = btn.textContent;
+    btn.textContent = 'Zipping…'; btn.disabled = true;
+    try{
+      const zip = new JSZip();
+      const usedNames = new Set();
+      done.forEach(item=>{
+        const ext = extForMime(item.outputMime);
+        let name = outputName(item, ext);
+        let n = 1;
+        while(usedNames.has(name)){ name = baseName(item.sourceName) + '-' + (n++) + '.' + ext; }
+        usedNames.add(name);
+        zip.file(name, item.outputBlob);
+      });
+      const zipBlob = await zip.generateAsync({type:'blob'});
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'converted-images.zip';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(url), 4000);
+    } finally {
+      btn.textContent = orig; btn.disabled = false;
+    }
+  });
+
+})();
+</script>
+</body>
+</html>
