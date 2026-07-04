@@ -1,0 +1,1110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDF to Base64 — QuickDev</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,300&family=Cabinet+Grotesk:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0b0e14;
+    --surface: #131720;
+    --surface2: #1a2030;
+    --border: #242c3d;
+    --text: #e8edf5;
+    --muted: #6b7a99;
+    --accent-dev: #4fffb0;
+    --accent-img: #ff8c42;
+    --accent-pdf: #7b8fff;
+    --glow-dev: rgba(79,255,176,0.15);
+    --glow-img: rgba(255,140,66,0.15);
+    --glow-pdf: rgba(123,143,255,0.15);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.4;
+  }
+
+  /* ── GRID BACKGROUND ── */
+  body::after {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(var(--border) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border) 1px, transparent 1px);
+    background-size: 48px 48px;
+    opacity: 0.4;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── HEADER ── */
+  header {
+    position: sticky; top: 0;
+    z-index: 10;
+    padding: 0 clamp(20px, 5vw, 80px);
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    background: rgba(11,14,20,0.8);
+    backdrop-filter: blur(12px);
+  }
+
+  .logo {
+    font-family: 'Fraunces', serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    text-decoration: none;
+  }
+  .logo span { color: var(--accent-dev); }
+
+  nav { display: flex; gap: 8px; align-items: center; }
+  nav a {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 6px 14px;
+    border-radius: 6px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    transition: color 0.2s, background 0.2s;
+  }
+  nav a:hover { color: var(--text); background: var(--surface2); }
+
+  .badge-new {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 0.72rem; font-family: 'DM Mono', monospace;
+    background: rgba(79,255,176,0.1);
+    color: var(--accent-dev);
+    border: 1px solid rgba(79,255,176,0.3);
+    padding: 5px 12px; border-radius: 100px;
+    text-decoration: none;
+    transition: background 0.2s;
+  }
+  .badge-new::before { content: '●'; font-size: 0.5rem; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .badge-new:hover { background: rgba(79,255,176,0.2); }
+
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(20px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  /* ── BREADCRUMB ── */
+  .breadcrumb {
+    position: relative; z-index: 5;
+    padding: 20px clamp(20px, 5vw, 80px) 0;
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    opacity: 0;
+    animation: fadeUp 0.5s 0.1s forwards;
+  }
+  .breadcrumb a { color: var(--muted); text-decoration: none; transition: color 0.2s; }
+  .breadcrumb a:hover { color: var(--accent-pdf); }
+  .breadcrumb span { color: var(--accent-pdf); }
+
+  /* ── PAGE HERO ── */
+  .page-hero {
+    position: relative; z-index: 5;
+    padding: clamp(32px, 5vh, 56px) clamp(20px, 5vw, 80px) clamp(24px, 4vh, 40px);
+    max-width: 900px;
+  }
+
+  .tool-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-pdf);
+    background: rgba(123,143,255,0.1);
+    border: 1px solid rgba(123,143,255,0.25);
+    padding: 5px 12px;
+    border-radius: 100px;
+    margin-bottom: 20px;
+    opacity: 0;
+    animation: fadeUp 0.5s 0.15s forwards;
+  }
+  .tool-badge::before { content: '⇄'; font-style: normal; }
+
+  .page-hero h1 {
+    font-family: 'Fraunces', serif;
+    font-size: clamp(2rem, 5vw, 3.6rem);
+    font-weight: 300;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.2s forwards;
+  }
+  .page-hero h1 em {
+    font-style: italic;
+    font-weight: 700;
+    color: var(--accent-pdf);
+    -webkit-text-fill-color: var(--accent-pdf);
+  }
+
+  .page-hero p {
+    font-size: 1rem;
+    color: var(--muted);
+    max-width: 560px;
+    line-height: 1.7;
+    opacity: 0;
+    animation: fadeUp 0.6s 0.3s forwards;
+  }
+  .page-hero p a {
+    color: var(--accent-pdf);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(123,143,255,0.4);
+    transition: border-color 0.2s;
+  }
+  .page-hero p a:hover { border-color: var(--accent-pdf); }
+
+  /* ── MAIN LAYOUT ── */
+  .tool-wrap {
+    position: relative; z-index: 5;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 80px) 80px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.4s forwards;
+  }
+
+  @media (max-width: 860px) {
+    .tool-wrap { grid-template-columns: 1fr; }
+  }
+
+  /* ── PANEL ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .panel-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .panel-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    padding: 3px 9px;
+    border-radius: 100px;
+    background: rgba(123,143,255,0.1);
+    color: var(--accent-pdf);
+    border: 1px solid rgba(123,143,255,0.2);
+  }
+
+  .panel-body { padding: 20px; flex: 1; display: flex; flex-direction: column; gap: 18px; }
+
+  /* ── DATATYPE TOGGLE ── */
+  .field-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+    display: block;
+  }
+
+  .toggle-group {
+    display: flex;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+  }
+
+  .toggle-btn {
+    flex: 1;
+    padding: 7px 12px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .toggle-btn.active {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .toggle-btn:hover:not(.active) { color: var(--text); }
+
+  /* ── DROP ZONE ── */
+  .drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 36px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--bg);
+    position: relative;
+  }
+  .drop-zone:hover, .drop-zone.drag-over {
+    border-color: rgba(123,143,255,0.5);
+    background: rgba(123,143,255,0.04);
+  }
+  .drop-zone input[type="file"] {
+    position: absolute; inset: 0;
+    opacity: 0; cursor: pointer; width: 100%; height: 100%;
+  }
+
+  .drop-icon {
+    font-size: 2rem;
+    margin-bottom: 10px;
+    display: block;
+    opacity: 0.6;
+  }
+  .drop-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+    margin-bottom: 4px;
+  }
+  .drop-hint {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .file-selected {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: rgba(123,143,255,0.08);
+    border: 1px solid rgba(123,143,255,0.2);
+    border-radius: 10px;
+  }
+  .file-selected.visible { display: flex; }
+  .file-icon-wrap {
+    width: 38px; height: 38px;
+    background: rgba(123,143,255,0.15);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .file-info { flex: 1; min-width: 0; }
+  .file-name {
+    font-size: 0.88rem;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .file-size {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+  .file-clear {
+    background: none; border: none;
+    color: var(--muted); cursor: pointer;
+    font-size: 1rem; padding: 4px;
+    border-radius: 4px;
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+  .file-clear:hover { color: var(--text); }
+
+  /* ── URL INPUT ── */
+  .url-input-wrap { display: none; }
+  .url-input-wrap.visible { display: block; }
+
+  .url-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.82rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .url-input::placeholder { color: var(--muted); }
+  .url-input:focus { border-color: rgba(123,143,255,0.5); }
+
+  /* ── FORMAT SELECT ── */
+  .format-select {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 500;
+    outline: none;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a99' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    transition: border-color 0.2s;
+  }
+  .format-select:focus { border-color: rgba(123,143,255,0.5); }
+  .format-select option { background: var(--surface2); }
+
+  /* ── ENCODE BUTTON ── */
+  .encode-btn {
+    width: 100%;
+    padding: 13px 20px;
+    background: var(--accent-pdf);
+    color: #0b0e14;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .encode-btn:hover:not(:disabled) {
+    background: #9aaaff;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(123,143,255,0.3);
+  }
+  .encode-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  .encode-btn .btn-spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(11,14,20,0.3);
+    border-top-color: #0b0e14;
+    border-radius: 50%;
+    display: none;
+    animation: spin 0.7s linear infinite;
+  }
+  .encode-btn.loading .btn-spinner { display: block; }
+  .encode-btn.loading .btn-text { display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── OUTPUT PANEL ── */
+  .output-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 400px;
+  }
+
+  .output-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .output-actions { display: flex; gap: 8px; }
+
+  .action-btn {
+    padding: 6px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.78rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .action-btn:hover { color: var(--text); border-color: rgba(123,143,255,0.4); }
+  .action-btn.success { color: var(--accent-dev); border-color: rgba(79,255,176,0.4); }
+
+  .output-body {
+    flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .output-empty {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 48px 20px;
+    color: var(--muted);
+  }
+  .output-empty-icon { font-size: 2.5rem; opacity: 0.3; }
+  .output-empty-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+    text-align: center;
+    line-height: 1.6;
+  }
+
+  .output-result { display: none; flex-direction: column; flex: 1; }
+  .output-result.visible { display: flex; }
+
+  .output-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 280px;
+    background: var(--bg);
+    border: none;
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    color: var(--accent-dev);
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    word-break: break-all;
+  }
+  .output-textarea::selection { background: rgba(123,143,255,0.3); }
+
+  .output-meta {
+    padding: 10px 20px;
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .meta-item {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .meta-item strong { color: var(--text); }
+
+  /* ── DOWNLOAD BAR ── */
+  .download-bar {
+    display: none;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+    gap: 10px;
+  }
+  .download-bar.visible { display: flex; flex-wrap: wrap; }
+
+  .dl-btn {
+    padding: 7px 16px;
+    border-radius: 7px;
+    font-family: 'Cabinet Grotesk', sans-serif;
+    font-size: 0.8rem;
+    font-weight: 700;
+    cursor: pointer;
+    border: 1px solid;
+    text-decoration: none;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .dl-btn-primary {
+    background: rgba(123,143,255,0.1);
+    color: var(--accent-pdf);
+    border-color: rgba(123,143,255,0.3);
+  }
+  .dl-btn-primary:hover { background: rgba(123,143,255,0.2); transform: translateY(-1px); }
+  .dl-btn-secondary {
+    background: var(--surface2);
+    color: var(--muted);
+    border-color: var(--border);
+  }
+  .dl-btn-secondary:hover { color: var(--text); transform: translateY(-1px); }
+
+  /* ── INFO SECTION ── */
+  .info-section {
+    position: relative; z-index: 5;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 0 clamp(20px, 5vw, 80px) 80px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    opacity: 0;
+    animation: fadeUp 0.7s 0.6s forwards;
+  }
+  @media (max-width: 720px) { .info-section { grid-template-columns: 1fr; } }
+
+  .info-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+
+  .info-card h3 {
+    font-family: 'Fraunces', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .info-card h3 .h3-icon {
+    width: 30px; height: 30px;
+    background: rgba(123,143,255,0.12);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem;
+  }
+
+  .info-steps { display: flex; flex-direction: column; gap: 10px; }
+  .info-step {
+    display: flex; align-items: flex-start; gap: 12px;
+    font-size: 0.88rem; color: var(--muted); line-height: 1.5;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 22px; height: 22px;
+    background: rgba(123,143,255,0.12);
+    border: 1px solid rgba(123,143,255,0.2);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent-pdf);
+    margin-top: 1px;
+  }
+
+  .formats-grid { display: flex; flex-direction: column; gap: 8px; }
+  .format-row {
+    display: flex; flex-direction: column; gap: 4px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .format-name {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent-pdf);
+  }
+  .format-example {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--muted);
+    word-break: break-all;
+    line-height: 1.4;
+  }
+
+  /* ── SECTION DIVIDER ── */
+  .section-divider {
+    position: relative; z-index: 5;
+    max-width: 1100px;
+    margin: 0 auto 32px;
+    padding: 0 clamp(20px,5vw,80px);
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .section-divider::before, .section-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: 28px; right: 28px;
+    z-index: 100;
+    background: var(--surface2);
+    border: 1px solid rgba(79,255,176,0.3);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--accent-dev);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    pointer-events: none;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  /* ── FOOTER ── */
+  footer {
+    position: relative; z-index: 5;
+    border-top: 1px solid var(--border);
+    padding: 32px clamp(20px,5vw,80px);
+    display: flex; justify-content: space-between; align-items: center;
+    flex-wrap: wrap; gap: 16px;
+  }
+  footer p {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent-dev); }
+
+  @media (max-width: 640px) {
+    nav a { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <a class="logo" href="#">Quick<span>Dev</span></a>
+  <nav>
+    <a href="#">Dev</a>
+    <a href="#">Images</a>
+    <a href="#">PDF</a>
+    <a class="badge-new" href="#">What's New &nbsp;7</a>
+  </nav>
+</header>
+
+<!-- BREADCRUMB -->
+<div class="breadcrumb">
+  <a href="#">Home</a>
+  <span>›</span>
+  <a href="#">PDF Tools</a>
+  <span>›</span>
+  <span>PDF to Base64</span>
+</div>
+
+<!-- PAGE HERO -->
+<div class="page-hero" style="padding-left: clamp(20px,5vw,80px); padding-right: clamp(20px,5vw,80px);">
+  <div class="tool-badge">PDF Encoder</div>
+  <h1>PDF to <em>Base64</em></h1>
+  <p>
+    Convert any PDF to a Base64 string — use it as a data URI, embed in HTML, JSON, or XML.
+    Useful when binary files can't be sent directly in text documents.
+    Files up to 50 MB. For the reverse, try <a href="#">Base64 to PDF</a>.
+  </p>
+</div>
+
+<!-- TOOL -->
+<div class="tool-wrap">
+
+  <!-- INPUT PANEL -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Input</span>
+      <span class="panel-badge">up to 50 MB</span>
+    </div>
+    <div class="panel-body">
+
+      <!-- Datatype toggle -->
+      <div>
+        <label class="field-label">Datatype</label>
+        <div class="toggle-group">
+          <button class="toggle-btn active" id="btn-local" onclick="setDatatype('local')">Local File</button>
+          <button class="toggle-btn" id="btn-url" onclick="setDatatype('url')">Remote URL</button>
+        </div>
+      </div>
+
+      <!-- Local file drop zone -->
+      <div id="local-zone">
+        <label class="field-label">Local File</label>
+        <div class="drop-zone" id="drop-zone">
+          <input type="file" id="file-input" accept="application/pdf,.pdf">
+          <span class="drop-icon">📄</span>
+          <div class="drop-title">Choose a file or drag and drop it here</div>
+          <div class="drop-hint">PDF files only · max 50 MB</div>
+        </div>
+        <div class="file-selected" id="file-selected">
+          <div class="file-icon-wrap">📄</div>
+          <div class="file-info">
+            <div class="file-name" id="file-name-display">document.pdf</div>
+            <div class="file-size" id="file-size-display">0 KB</div>
+          </div>
+          <button class="file-clear" onclick="clearFile()" title="Remove file">✕</button>
+        </div>
+      </div>
+
+      <!-- Remote URL input -->
+      <div id="url-zone" class="url-input-wrap">
+        <label class="field-label">Remote URL</label>
+        <input class="url-input" type="url" id="url-input" placeholder="https://example.com/document.pdf">
+      </div>
+
+      <!-- Output format -->
+      <div>
+        <label class="field-label">Output Format</label>
+        <select class="format-select" id="format-select">
+          <option value="plain">Plain text — just the Base64 value</option>
+          <option value="datauri">Data URI — data:content/type;base64</option>
+          <option value="embed">HTML Embed — &lt;embed /&gt;</option>
+          <option value="hyperlink">HTML Hyperlink — &lt;a&gt;&lt;/a&gt;</option>
+          <option value="object">HTML Object — &lt;object&gt;&lt;/object&gt;</option>
+          <option value="js">JavaScript Popup — window.open()</option>
+          <option value="json">JSON — {file:{mime,data}}</option>
+          <option value="xml">XML — &lt;file&gt;&lt;/file&gt;</option>
+        </select>
+      </div>
+
+      <!-- Encode button -->
+      <button class="encode-btn" id="encode-btn" onclick="encodePDF()" disabled>
+        <span class="btn-text">⇄ Encode PDF to Base64</span>
+        <div class="btn-spinner"></div>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- OUTPUT PANEL -->
+  <div class="output-panel">
+    <div class="output-header">
+      <span class="panel-title">Base64 Output</span>
+      <div class="output-actions">
+        <button class="action-btn" id="copy-btn" onclick="copyOutput()" style="display:none">
+          <span>⎘</span> Copy
+        </button>
+        <button class="action-btn" id="dl-txt-btn" onclick="downloadTxt()" style="display:none">
+          <span>↓</span> .txt
+        </button>
+      </div>
+    </div>
+    <div class="output-body">
+
+      <!-- Empty state -->
+      <div class="output-empty" id="output-empty">
+        <span class="output-empty-icon">⇄</span>
+        <div class="output-empty-text">
+          Select a PDF and press<br>"Encode PDF to Base64"<br>to see the result here
+        </div>
+      </div>
+
+      <!-- Result -->
+      <div class="output-result" id="output-result">
+        <textarea class="output-textarea" id="output-textarea" readonly spellcheck="false"></textarea>
+        <div class="output-meta">
+          <div class="meta-item">Size: <strong id="meta-size">—</strong></div>
+          <div class="meta-item">Chars: <strong id="meta-chars">—</strong></div>
+          <div class="meta-item">Format: <strong id="meta-format">—</strong></div>
+        </div>
+      </div>
+
+    </div>
+    <div class="download-bar" id="download-bar">
+      <button class="dl-btn dl-btn-primary" onclick="downloadTxt()">↓ Download .txt</button>
+      <button class="dl-btn dl-btn-secondary" onclick="copyOutput()">⎘ Copy to Clipboard</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- HOW TO / FORMATS INFO -->
+<div class="section-divider"><span class="section-label">Documentation</span></div>
+<div class="info-section">
+
+  <div class="info-card">
+    <h3><span class="h3-icon">①</span> How to use</h3>
+    <div class="info-steps">
+      <div class="info-step"><div class="step-num">1</div>Choose the source of your PDF file from the "Datatype" field.</div>
+      <div class="info-step"><div class="step-num">2</div>Paste a URL or select a PDF file from your computer.</div>
+      <div class="info-step"><div class="step-num">3</div>Select your desired output format from the dropdown.</div>
+      <div class="info-step"><div class="step-num">4</div>Press "Encode PDF to Base64" to generate the result.</div>
+      <div class="info-step"><div class="step-num">5</div>Copy or download the result from the output panel.</div>
+    </div>
+  </div>
+
+  <div class="info-card">
+    <h3><span class="h3-icon">⇄</span> Output formats</h3>
+    <div class="formats-grid">
+      <div class="format-row">
+        <div class="format-name">Plain text</div>
+        <div class="format-example">JVBERi0xLjUKJYCBgoMKMSAwIG9i...</div>
+      </div>
+      <div class="format-row">
+        <div class="format-name">Data URI</div>
+        <div class="format-example">data:application/pdf;base64,JVBERi0...</div>
+      </div>
+      <div class="format-row">
+        <div class="format-name">HTML Embed</div>
+        <div class="format-example">&lt;embed type="application/pdf" src="data:..."  /&gt;</div>
+      </div>
+      <div class="format-row">
+        <div class="format-name">JSON</div>
+        <div class="format-example">{"file":{"mime":"application/pdf","data":"..."}}</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast">✓ Copied to clipboard</div>
+
+<footer>
+  <p>© 2025 <a href="#">QuickDev</a> — All tools run client-side. Nothing is uploaded to a server.</p>
+  <p><a href="#">What's New →</a></p>
+</footer>
+
+<script>
+  let currentDatatype = 'local';
+  let selectedFile = null;
+  let outputValue = '';
+
+  function setDatatype(type) {
+    currentDatatype = type;
+    document.getElementById('btn-local').classList.toggle('active', type === 'local');
+    document.getElementById('btn-url').classList.toggle('active', type === 'url');
+    document.getElementById('local-zone').style.display = type === 'local' ? '' : 'none';
+    document.getElementById('url-zone').classList.toggle('visible', type === 'url');
+    updateEncodeBtn();
+  }
+
+  // Drag and drop
+  const dropZone = document.getElementById('drop-zone');
+  dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(f);
+  });
+
+  document.getElementById('file-input').addEventListener('change', e => {
+    if (e.target.files[0]) setFile(e.target.files[0]);
+  });
+
+  document.getElementById('url-input').addEventListener('input', updateEncodeBtn);
+
+  function setFile(file) {
+    if (file.size > 50 * 1024 * 1024) {
+      showToast('⚠ File exceeds 50 MB limit', true);
+      return;
+    }
+    selectedFile = file;
+    document.getElementById('file-name-display').textContent = file.name;
+    document.getElementById('file-size-display').textContent = formatBytes(file.size);
+    document.getElementById('drop-zone').style.display = 'none';
+    document.getElementById('file-selected').classList.add('visible');
+    updateEncodeBtn();
+  }
+
+  function clearFile() {
+    selectedFile = null;
+    document.getElementById('file-input').value = '';
+    document.getElementById('drop-zone').style.display = '';
+    document.getElementById('file-selected').classList.remove('visible');
+    updateEncodeBtn();
+  }
+
+  function updateEncodeBtn() {
+    const btn = document.getElementById('encode-btn');
+    if (currentDatatype === 'local') {
+      btn.disabled = !selectedFile;
+    } else {
+      btn.disabled = !document.getElementById('url-input').value.trim();
+    }
+  }
+
+  function formatBytes(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  function encodePDF() {
+    const btn = document.getElementById('encode-btn');
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    if (currentDatatype === 'local' && selectedFile) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const base64 = e.target.result.split(',')[1];
+        finishEncoding(base64, selectedFile.name);
+      };
+      reader.readAsDataURL(selectedFile);
+    } else {
+      // URL mode — fetch and encode
+      const url = document.getElementById('url-input').value.trim();
+      fetch(url)
+        .then(r => r.blob())
+        .then(blob => {
+          const reader = new FileReader();
+          reader.onload = e => {
+            const base64 = e.target.result.split(',')[1];
+            finishEncoding(base64, url.split('/').pop() || 'document.pdf');
+          };
+          reader.readAsDataURL(blob);
+        })
+        .catch(() => {
+          showToast('⚠ Could not fetch the remote file', true);
+          btn.classList.remove('loading');
+          btn.disabled = false;
+        });
+    }
+  }
+
+  function finishEncoding(base64, filename) {
+    const format = document.getElementById('format-select').value;
+    const mime = 'application/pdf';
+    const dataUri = `data:${mime};base64,${base64}`;
+    let output = '';
+    let formatLabel = '';
+
+    switch (format) {
+      case 'plain':
+        output = base64;
+        formatLabel = 'Plain text';
+        break;
+      case 'datauri':
+        output = dataUri;
+        formatLabel = 'Data URI';
+        break;
+      case 'embed':
+        output = `<embed type="${mime}" src="${dataUri}" width="100%" height="600px" />`;
+        formatLabel = 'HTML Embed';
+        break;
+      case 'hyperlink':
+        output = `<a href="${dataUri}" download="${filename}">Download PDF</a>`;
+        formatLabel = 'HTML Hyperlink';
+        break;
+      case 'object':
+        output = `<object type="${mime}" data="${dataUri}" width="100%" height="600px">\n  <p>Your browser does not support PDFs.</p>\n</object>`;
+        formatLabel = 'HTML Object';
+        break;
+      case 'js':
+        output = `window.onclick = function () {\n  this.open("${dataUri}");\n};`;
+        formatLabel = 'JavaScript Popup';
+        break;
+      case 'json':
+        output = JSON.stringify({ file: { mime, data: base64 } }, null, 2);
+        formatLabel = 'JSON';
+        break;
+      case 'xml':
+        output = `<?xml version="1.0" encoding="UTF-8"?>\n<root>\n  <file mime="${mime}">${base64}</file>\n</root>`;
+        formatLabel = 'XML';
+        break;
+    }
+
+    outputValue = output;
+
+    document.getElementById('output-textarea').value = output;
+    document.getElementById('meta-size').textContent = formatBytes(new Blob([output]).size);
+    document.getElementById('meta-chars').textContent = output.length.toLocaleString();
+    document.getElementById('meta-format').textContent = formatLabel;
+
+    document.getElementById('output-empty').style.display = 'none';
+    document.getElementById('output-result').classList.add('visible');
+    document.getElementById('download-bar').classList.add('visible');
+    document.getElementById('copy-btn').style.display = '';
+    document.getElementById('dl-txt-btn').style.display = '';
+
+    const btn = document.getElementById('encode-btn');
+    btn.classList.remove('loading');
+    btn.disabled = false;
+  }
+
+  function copyOutput() {
+    if (!outputValue) return;
+    navigator.clipboard.writeText(outputValue).then(() => {
+      const btn = document.getElementById('copy-btn');
+      btn.classList.add('success');
+      btn.innerHTML = '<span>✓</span> Copied!';
+      showToast('✓ Copied to clipboard');
+      setTimeout(() => {
+        btn.classList.remove('success');
+        btn.innerHTML = '<span>⎘</span> Copy';
+      }, 2000);
+    });
+  }
+
+  function downloadTxt() {
+    if (!outputValue) return;
+    const blob = new Blob([outputValue], { type: 'text/plain' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'base64-output.txt';
+    a.click();
+    URL.revokeObjectURL(a.href);
+    showToast('✓ Downloaded base64-output.txt');
+  }
+
+  function showToast(msg, isWarn = false) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.style.color = isWarn ? 'var(--accent-img)' : 'var(--accent-dev)';
+    t.style.borderColor = isWarn ? 'rgba(255,140,66,0.3)' : 'rgba(79,255,176,0.3)';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2800);
+  }
+</script>
+</body>
+</html>
