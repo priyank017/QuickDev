@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wire — a direct HTTP client</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#1C1B19;
+    --panel:#232220;
+    --panel-raised:#2A2825;
+    --border:#3A3733;
+    --border-soft:#2E2C29;
+    --text:#EDE8E0;
+    --text-dim:#9C948A;
+    --text-faint:#6E685F;
+    --accent:#FFB454;
+    --accent-dim:rgba(255,180,84,0.14);
+    --accent-dim2:rgba(255,180,84,0.3);
+    --ok:#7FB77E;
+    --ok-dim:rgba(127,183,126,0.14);
+    --err:#E0645A;
+    --err-dim:rgba(224,100,90,0.14);
+    --info:#6FA8DC;
+    --info-dim:rgba(111,168,220,0.14);
+    --mono:'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+    --sans:'Inter', -apple-system, sans-serif;
+    --radius:6px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  .app{max-width:1400px;margin:0 auto;padding:20px 24px 60px;}
+
+  /* ---------- Header ---------- */
+  .topbar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding-bottom:16px;margin-bottom:18px;
+    border-bottom:1px solid var(--border-soft);
+    flex-wrap:wrap;gap:10px;
+  }
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .led{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--text-faint);
+    display:inline-block;position:relative;top:-2px;
+    box-shadow:0 0 0 0 transparent;
+    transition:background .2s, box-shadow .2s;
+  }
+  .led.active{ background:var(--accent); box-shadow:0 0 8px 1px var(--accent-dim2); animation:pulse 1s infinite ease-in-out; }
+  .led.ok{ background:var(--ok); box-shadow:0 0 8px 1px rgba(127,183,126,0.5); animation:none; }
+  .led.err{ background:var(--err); box-shadow:0 0 8px 1px rgba(224,100,90,0.5); animation:none; }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .brand-name{font-family:var(--mono);font-weight:700;letter-spacing:0.14em;font-size:19px;}
+  .brand-tag{font-family:var(--mono);font-size:11px;color:var(--text-faint);letter-spacing:0.04em;}
+  .privacy-note{font-size:12px;color:var(--text-faint);font-family:var(--mono);}
+  .privacy-note strong{color:var(--text-dim);font-weight:500;}
+
+  /* ---------- Request line ---------- */
+  .request-line{display:flex;gap:8px;margin-bottom:16px;}
+  select, input[type=text], input[type=url], textarea{
+    background:var(--panel);
+    border:1px solid var(--border);
+    color:var(--text);
+    border-radius:var(--radius);
+    padding:9px 11px;
+    font-family:var(--mono);
+    font-size:13px;
+    outline:none;
+  }
+  select:focus, input:focus, textarea:focus{ border-color:var(--accent-dim2); }
+  #method{ font-weight:700; width:112px; flex-shrink:0; cursor:pointer; }
+  #url{ flex:1; min-width:0; }
+  .btn{
+    font-family:var(--sans);font-weight:600;font-size:13px;
+    border-radius:var(--radius); border:1px solid transparent;
+    padding:9px 18px; cursor:pointer; transition:filter .15s, background .15s;
+    white-space:nowrap;
+  }
+  .btn-primary{ background:var(--accent); color:#1C1B19; }
+  .btn-primary:hover{ filter:brightness(1.08); }
+  .btn-primary:disabled{ background:var(--border); color:var(--text-faint); cursor:not-allowed; }
+  .btn-ghost{ background:transparent; border-color:var(--border); color:var(--text-dim); }
+  .btn-ghost:hover{ border-color:var(--text-faint); color:var(--text); }
+  .btn-danger-ghost{ background:transparent;border-color:var(--border);color:var(--err); }
+
+  /* ---------- Relay bar ---------- */
+  .relay-bar{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    background:var(--panel); border:1px solid var(--border); border-radius:var(--radius);
+    padding:9px 12px; margin-bottom:16px; font-size:12px;
+  }
+  .relay-toggle{ display:flex; align-items:center; gap:7px; cursor:pointer; color:var(--text-dim); font-family:var(--mono); white-space:nowrap; }
+  .relay-toggle input{ accent-color:var(--accent); width:15px; height:15px; }
+  #relayUrl{ font-size:11.5px; padding:5px 8px; width:220px; flex-shrink:0; }
+  #relayUrl:disabled{ opacity:0.4; }
+  .relay-status{ font-family:var(--mono); font-size:11px; white-space:nowrap; }
+  .relay-status.ok{ color:var(--ok); }
+  .relay-status.err{ color:var(--err); }
+  .relay-help{ color:var(--text-faint); font-size:11.5px; }
+  .relay-help a{ color:var(--accent); text-decoration:none; }
+  .relay-help a:hover{ text-decoration:underline; }
+
+  .relay-modal-backdrop{
+    position:fixed; inset:0; background:rgba(0,0,0,0.6); display:flex;
+    align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .relay-modal{
+    background:var(--panel-raised); border:1px solid var(--border); border-radius:8px;
+    max-width:560px; width:100%; padding:22px 24px; max-height:85vh; overflow:auto;
+  }
+  .relay-modal h3{ font-family:var(--mono); color:var(--accent); font-size:15px; margin:0 0 12px; }
+  .relay-modal pre{
+    background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:10px 12px;
+    font-family:var(--mono); font-size:12.5px; color:var(--text); overflow-x:auto;
+  }
+  .relay-modal p, .relay-modal li{ font-size:13px; line-height:1.6; color:var(--text-dim); }
+  .relay-modal .btn{ margin-top:10px; }
+
+  /* ---------- Workspace ---------- */
+  .workspace{ display:grid; grid-template-columns:1fr 1fr; gap:18px; align-items:start; }
+  @media (max-width:920px){ .workspace{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    overflow:hidden;
+  }
+  .tabs{ display:flex; border-bottom:1px solid var(--border); overflow-x:auto; }
+  .tab{
+    background:transparent;border:none;color:var(--text-faint);
+    font-family:var(--mono);font-size:12px;letter-spacing:0.03em;
+    padding:11px 16px;cursor:pointer;border-bottom:2px solid transparent;
+    white-space:nowrap;
+  }
+  .tab:hover{ color:var(--text-dim); }
+  .tab.active{ color:var(--accent); border-bottom-color:var(--accent); }
+  .tab-panels{ padding:16px; }
+  .tab-panel{ display:none; }
+  .tab-panel.active{ display:block; }
+
+  /* ---------- Key/value rows ---------- */
+  .kv-table{ width:100%; border-collapse:collapse; }
+  .kv-row{ display:flex; gap:6px; margin-bottom:6px; align-items:center; }
+  .kv-row input[type=text]{ flex:1; min-width:0; padding:7px 9px; font-size:12.5px; }
+  .kv-row input[type=checkbox]{ accent-color:var(--accent); width:15px;height:15px;flex-shrink:0; }
+  .kv-row .row-remove{
+    background:transparent;border:none;color:var(--text-faint);cursor:pointer;
+    font-size:16px;line-height:1;padding:4px 6px;flex-shrink:0;
+  }
+  .kv-row .row-remove:hover{ color:var(--err); }
+  .add-row-btn{
+    background:transparent;border:1px dashed var(--border);color:var(--text-faint);
+    font-family:var(--mono);font-size:12px;padding:7px 12px;border-radius:var(--radius);
+    cursor:pointer;width:100%;margin-top:4px;
+  }
+  .add-row-btn:hover{ color:var(--accent); border-color:var(--accent-dim2); }
+  .field-label{ font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-faint);font-family:var(--mono);display:block;margin:14px 0 6px; }
+  .field-label:first-child{ margin-top:0; }
+  .help-text{ font-size:12px;color:var(--text-faint);line-height:1.5;margin:6px 0 0; }
+  .full-w{ width:100%; }
+  .row-2{ display:flex;gap:8px; }
+  .row-2 > *{ flex:1; min-width:0; }
+
+  select.plain{ width:100%; }
+  textarea{ width:100%; min-height:140px; resize:vertical; line-height:1.5; }
+
+  .preset-row{ display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; }
+  .preset-chip{
+    background:var(--panel-raised); border:1px solid var(--border); color:var(--text-dim);
+    font-family:var(--mono); font-size:11px; padding:4px 9px; border-radius:20px; cursor:pointer;
+  }
+  .preset-chip:hover{ border-color:var(--accent-dim2); color:var(--accent); }
+
+  /* ---------- Cert tab ---------- */
+  .cert-callout{
+    background:var(--info-dim); border:1px solid rgba(111,168,220,0.35);
+    border-radius:var(--radius); padding:12px 14px; font-size:12.5px; line-height:1.6; color:var(--text);
+    margin-bottom:16px;
+  }
+  .cert-callout strong{ color:var(--info); }
+  details.os-instructions{ margin-top:10px; font-size:12.5px; }
+  details.os-instructions summary{ cursor:pointer; color:var(--text-dim); font-family:var(--mono); font-size:12px; }
+  details.os-instructions ol{ padding-left:18px; color:var(--text-dim); line-height:1.7; }
+  .file-btn-row{ display:flex; gap:8px; margin-top:8px; }
+
+  /* ---------- Response panel ---------- */
+  .response-panel{ position:relative; min-height:200px; }
+  .response-panel::before, .response-panel::after,
+  .response-inner-corner-tl, .response-inner-corner-br { content:''; }
+  .corner{
+    position:absolute; width:14px; height:14px; border-color:var(--accent-dim2);
+    opacity:0.6; pointer-events:none;
+  }
+  .corner.tl{ top:-1px;left:-1px;border-top:2px solid;border-left:2px solid; border-top-left-radius:8px;}
+  .corner.tr{ top:-1px;right:-1px;border-top:2px solid;border-right:2px solid; border-top-right-radius:8px;}
+  .corner.bl{ bottom:-1px;left:-1px;border-bottom:2px solid;border-left:2px solid; border-bottom-left-radius:8px;}
+  .corner.br{ bottom:-1px;right:-1px;border-bottom:2px solid;border-right:2px solid; border-bottom-right-radius:8px;}
+
+  .response-empty{
+    padding:60px 20px; text-align:center; color:var(--text-faint);
+    font-family:var(--mono); font-size:13px;
+  }
+  .response-meta{ display:flex; align-items:center; gap:14px; padding:14px 16px; border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .status-pill{
+    font-family:var(--mono); font-weight:700; font-size:13px; padding:3px 10px; border-radius:20px;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .status-pill.ok{ background:var(--ok-dim); color:var(--ok); }
+  .status-pill.warn{ background:var(--info-dim); color:var(--info); }
+  .status-pill.err{ background:var(--err-dim); color:var(--err); }
+  .meta-item{ font-family:var(--mono); font-size:12px; color:var(--text-faint); }
+  .meta-item b{ color:var(--text-dim); font-weight:600; }
+
+  pre.tab-panel{
+    margin:0; white-space:pre-wrap; word-break:break-word;
+    font-family:var(--mono); font-size:12.5px; line-height:1.6; color:var(--text-dim);
+    max-height:480px; overflow:auto;
+  }
+  .headers-list{ font-family:var(--mono); font-size:12.5px; }
+  .headers-list .h-row{ display:flex; gap:10px; padding:5px 0; border-bottom:1px solid var(--border-soft); }
+  .headers-list .h-key{ color:var(--accent); min-width:180px; }
+  .headers-list .h-val{ color:var(--text-dim); word-break:break-all; }
+
+  .copy-row{ display:flex; justify-content:flex-end; padding:0 16px; margin-top:-4px; }
+  .copy-btn{
+    background:transparent;border:1px solid var(--border);color:var(--text-faint);
+    font-family:var(--mono);font-size:11px;padding:4px 10px;border-radius:4px;cursor:pointer;
+  }
+  .copy-btn:hover{ color:var(--accent); border-color:var(--accent-dim2); }
+
+  .error-block{
+    background:var(--err-dim); border:1px solid rgba(224,100,90,0.35); border-radius:var(--radius);
+    padding:14px; font-size:12.5px; line-height:1.6; color:var(--text); margin:16px;
+  }
+  .error-block strong{ color:var(--err); }
+
+  .img-preview{ max-width:100%; border-radius:4px; border:1px solid var(--border); }
+
+  footer.appfoot{
+    margin-top:30px; text-align:center; color:var(--text-faint); font-family:var(--mono); font-size:11.5px;
+  }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="brand">
+      <span class="led" id="led"></span>
+      <span class="brand-name">WIRE</span>
+      <span class="brand-tag">a direct HTTP client</span>
+    </div>
+    <div class="privacy-note"><strong>Nothing is saved.</strong> No history, no accounts. Requests go straight to your URL, or through a relay that only runs on your own machine if you turn that on.</div>
+  </div>
+
+  <div class="request-line">
+    <select id="method">
+      <option>GET</option><option>POST</option><option>PUT</option><option>PATCH</option>
+      <option>DELETE</option><option>HEAD</option><option>OPTIONS</option>
+    </select>
+    <input type="text" id="url" placeholder="https://api.example.com/v1/resource" autocomplete="off" spellcheck="false">
+    <button class="btn btn-primary" id="sendBtn">Send</button>
+    <button class="btn btn-ghost" id="clearBtn" title="Reset everything on this page">Clear</button>
+  </div>
+
+  <div class="relay-bar">
+    <label class="relay-toggle">
+      <input type="checkbox" id="relayToggle">
+      <span>Route through local relay</span>
+    </label>
+    <input type="text" id="relayUrl" value="http://localhost:7890/relay" spellcheck="false">
+    <span class="relay-status" id="relayStatus"></span>
+    <span class="relay-help">bypasses CORS entirely, and enables real client-certificate mTLS — <a href="#" id="relayHowto">how to run it</a></span>
+  </div>
+
+  <main class="workspace">
+
+    <!-- REQUEST PANEL -->
+    <section class="panel">
+      <nav class="tabs" id="reqTabs">
+        <button class="tab active" data-tab="params">Params</button>
+        <button class="tab" data-tab="headers">Headers</button>
+        <button class="tab" data-tab="auth">Auth</button>
+        <button class="tab" data-tab="body">Body</button>
+        <button class="tab" data-tab="cert">Client Cert</button>
+      </nav>
+      <div class="tab-panels">
+
+        <div class="tab-panel active" id="panel-params">
+          <div id="paramsRows"></div>
+          <button class="add-row-btn" id="addParamRow">+ add param</button>
+          <p class="help-text">Params are appended to the URL as a query string when they're checked on.</p>
+        </div>
+
+        <div class="tab-panel" id="panel-headers">
+          <div class="preset-row">
+            <span class="preset-chip" data-h="Content-Type|application/json">Content-Type: json</span>
+            <span class="preset-chip" data-h="Accept|application/json">Accept: json</span>
+            <span class="preset-chip" data-h="User-Agent|Wire/1.0">User-Agent</span>
+          </div>
+          <div id="headersRows"></div>
+          <button class="add-row-btn" id="addHeaderRow">+ add header</button>
+        </div>
+
+        <div class="tab-panel" id="panel-auth">
+          <label class="field-label">Type</label>
+          <select class="plain" id="authType">
+            <option value="none">No auth</option>
+            <option value="basic">Basic auth</option>
+            <option value="bearer">Bearer token</option>
+            <option value="apikey">API key</option>
+          </select>
+
+          <div id="authFields"></div>
+          <p class="help-text">Whatever you pick here is folded into the request's headers (or query string, for API keys set to send that way) right before sending — it isn't stored separately.</p>
+        </div>
+
+        <div class="tab-panel" id="panel-body">
+          <label class="field-label">Body type</label>
+          <select class="plain" id="bodyType">
+            <option value="none">None</option>
+            <option value="raw-json">Raw — JSON</option>
+            <option value="raw-text">Raw — Text</option>
+            <option value="raw-xml">Raw — XML</option>
+            <option value="urlencoded">x-www-form-urlencoded</option>
+            <option value="formdata">multipart/form-data</option>
+          </select>
+          <div id="bodyFields"></div>
+        </div>
+
+        <div class="tab-panel" id="panel-cert">
+          <div class="cert-callout">
+            <strong>About mutual TLS (2-way SSL) here.</strong> A client certificate is presented during the TLS handshake, before any JavaScript runs — browsers deliberately don't let a web page attach one to an individual request. There's no way around that from inside any browser-based tool, this one included.
+            <br><br>
+            Three ways to actually test an mTLS endpoint:
+            <br>1. <strong>Turn on "Route through local relay"</strong> above the address bar. The relay is a real local process, not a browser page, so it attaches the cert/key you enter below to a genuine mTLS handshake — this is the closest thing to "it just works" here.
+            <br>2. <strong>Install the certificate in your OS or browser</strong> — it'll handle the handshake automatically for direct (non-relay) requests too.
+            <br>3. <strong>Use the generated cURL command</strong> (see the "cURL" tab in the response panel) — no browser involved at all.
+          </div>
+
+          <label class="field-label">Client certificate (PEM)</label>
+          <textarea id="certPem" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+
+          <label class="field-label">Private key (PEM)</label>
+          <textarea id="keyPem" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+
+          <label class="field-label">Passphrase (optional)</label>
+          <input type="text" id="certPass" class="full-w" placeholder="only if your key is encrypted">
+
+          <div class="file-btn-row">
+            <button class="btn btn-ghost" id="dlCert" type="button">Download as client.crt</button>
+            <button class="btn btn-ghost" id="dlKey" type="button">Download as client.key</button>
+          </div>
+          <p class="help-text">These downloads happen entirely in your browser — pasted text turns straight into a file and is never sent anywhere. Save them next to where you'll run the cURL command.</p>
+
+          <details class="os-instructions">
+            <summary>Install this certificate in your OS or browser instead →</summary>
+            <ol>
+              <li><strong>macOS:</strong> combine cert + key into a .p12 (e.g. via <code>openssl pkcs12 -export</code>), then double-click it to add to Keychain Access.</li>
+              <li><strong>Windows:</strong> convert to .p12, then Settings → Manage user certificates → Personal → Import.</li>
+              <li><strong>Firefox:</strong> Settings → Privacy & Security → View Certificates → Your Certificates → Import (Firefox keeps its own store, separate from the OS).</li>
+              <li><strong>Chrome / Edge / Safari:</strong> use the OS store above — they read from it directly.</li>
+            </ol>
+          </details>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- RESPONSE PANEL -->
+    <section class="panel response-panel">
+      <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      <div class="response-empty" id="responseEmpty">— waiting for a request —<br><br>Fill in a URL above and hit Send.</div>
+      <div id="responseContent" hidden>
+        <div class="response-meta">
+          <span class="status-pill" id="statusPill">—</span>
+          <span class="meta-item" id="timeMeta"></span>
+          <span class="meta-item" id="sizeMeta"></span>
+        </div>
+        <nav class="tabs" id="resTabs">
+          <button class="tab active" data-tab="body">Body</button>
+          <button class="tab" data-tab="headers">Headers</button>
+          <button class="tab" data-tab="curl">cURL</button>
+        </nav>
+        <div class="copy-row"><button class="copy-btn" id="copyActive">copy</button></div>
+        <div class="tab-panels">
+          <pre class="tab-panel active" id="respBody"></pre>
+          <div class="tab-panel" id="respHeaders"><div class="headers-list" id="respHeadersList"></div></div>
+          <pre class="tab-panel" id="respCurl"></pre>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="appfoot">WIRE keeps no logs, no history, no accounts. Every request goes straight from your browser to the URL you typed.</footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------------- State (memory only — nothing persisted) ----------------
+  const state = {
+    params: [{key:'',value:'',enabled:true}],
+    headers: [{key:'',value:'',enabled:true}],
+    auth: {type:'none', basicUser:'', basicPass:'', bearerToken:'', apiKeyName:'', apiKeyValue:'', apiKeyLoc:'header'},
+    body: {
+      type:'none',
+      raw:'',
+      urlencoded:[{key:'',value:'',enabled:true}],
+      formdata:[{key:'',value:'',enabled:true,isFile:false,file:null}]
+    },
+    cert: {certPem:'', keyPem:'', certPass:''}
+  };
+  let abortController = null;
+
+  // ---------------- Helpers ----------------
+  function el(tag, attrs, children){
+    const e = document.createElement(tag);
+    if(attrs) for(const k in attrs){
+      if(k==='class') e.className = attrs[k];
+      else if(k==='text') e.textContent = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    }
+    (children||[]).forEach(c => e.appendChild(c));
+    return e;
+  }
+
+  function switchTabs(navEl, panelsContainer){
+    navEl.querySelectorAll('.tab').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        navEl.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        panelsContainer.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+        const target = panelsContainer.querySelector('#panel-'+btn.dataset.tab) || panelsContainer.querySelector('#resp'+cap(btn.dataset.tab));
+        if(target) target.classList.add('active');
+      });
+    });
+  }
+  function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+
+  // request tabs
+  switchTabs(document.getElementById('reqTabs'), document.querySelector('.workspace .panel:first-child'));
+  // response tabs (custom mapping since ids differ)
+  document.querySelectorAll('#resTabs .tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('#resTabs .tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('.response-panel .tab-panel').forEach(p=>p.classList.remove('active'));
+      document.getElementById('resp'+cap(btn.dataset.tab)).classList.add('active');
+    });
+  });
+
+  // ---------------- Generic key/value row rendering ----------------
+  function renderKVRows(containerId, arr, opts){
+    opts = opts || {};
+    const container = document.getElementById(containerId);
+    container.innerHTML = '';
+    arr.forEach((row, idx)=>{
+      const wrap = el('div',{class:'kv-row'});
+      const cb = el('input',{type:'checkbox'});
+      cb.checked = row.enabled;
+      cb.addEventListener('change', ()=>{ row.enabled = cb.checked; });
+
+      const keyInput = el('input',{type:'text', placeholder:'key'});
+      keyInput.value = row.key;
+      keyInput.addEventListener('input', ()=>{ row.key = keyInput.value; });
+
+      wrap.appendChild(cb);
+      wrap.appendChild(keyInput);
+
+      if(opts.withFileToggle){
+        const valInput = el('input',{type:'text', placeholder:'value'});
+        valInput.value = row.value;
+        valInput.style.display = row.isFile ? 'none' : '';
+        valInput.addEventListener('input', ()=>{ row.value = valInput.value; });
+
+        const fileInput = el('input',{type:'file'});
+        fileInput.style.display = row.isFile ? '' : 'none';
+        fileInput.style.flex = '1';
+        fileInput.style.minWidth = '0';
+        fileInput.addEventListener('change', ()=>{ row.file = fileInput.files[0] || null; });
+
+        const toggle = el('button',{class:'row-remove', title:'Toggle text/file', text: row.isFile ? '📎' : 'Ᵽ'});
+        toggle.addEventListener('click', ()=>{
+          row.isFile = !row.isFile;
+          renderKVRows(containerId, arr, opts);
+        });
+
+        wrap.appendChild(valInput);
+        wrap.appendChild(fileInput);
+        wrap.appendChild(toggle);
+      } else {
+        const valInput = el('input',{type:'text', placeholder:'value'});
+        valInput.value = row.value;
+        valInput.addEventListener('input', ()=>{ row.value = valInput.value; });
+        wrap.appendChild(valInput);
+      }
+
+      const removeBtn = el('button',{class:'row-remove', text:'✕'});
+      removeBtn.addEventListener('click', ()=>{
+        arr.splice(idx,1);
+        if(arr.length===0) arr.push({key:'',value:'',enabled:true,isFile:false,file:null});
+        renderKVRows(containerId, arr, opts);
+      });
+      wrap.appendChild(removeBtn);
+      container.appendChild(wrap);
+    });
+  }
+
+  renderKVRows('paramsRows', state.params);
+  renderKVRows('headersRows', state.headers);
+
+  document.getElementById('addParamRow').addEventListener('click', ()=>{
+    state.params.push({key:'',value:'',enabled:true});
+    renderKVRows('paramsRows', state.params);
+  });
+  document.getElementById('addHeaderRow').addEventListener('click', ()=>{
+    state.headers.push({key:'',value:'',enabled:true});
+    renderKVRows('headersRows', state.headers);
+  });
+  document.querySelectorAll('.preset-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      const [k,v] = chip.dataset.h.split('|');
+      const emptyRow = state.headers.find(r=>!r.key && !r.value);
+      if(emptyRow){ emptyRow.key=k; emptyRow.value=v; emptyRow.enabled=true; }
+      else state.headers.push({key:k,value:v,enabled:true});
+      renderKVRows('headersRows', state.headers);
+    });
+  });
+
+  // ---------------- Auth tab ----------------
+  const authFieldsEl = document.getElementById('authFields');
+  function renderAuthFields(){
+    authFieldsEl.innerHTML = '';
+    const t = state.auth.type;
+    if(t==='basic'){
+      authFieldsEl.appendChild(labeledInput('Username', state.auth.basicUser, v=>state.auth.basicUser=v));
+      authFieldsEl.appendChild(labeledInput('Password', state.auth.basicPass, v=>state.auth.basicPass=v, 'password'));
+    } else if(t==='bearer'){
+      authFieldsEl.appendChild(labeledInput('Token', state.auth.bearerToken, v=>state.auth.bearerToken=v));
+    } else if(t==='apikey'){
+      authFieldsEl.appendChild(labeledInput('Key name', state.auth.apiKeyName, v=>state.auth.apiKeyName=v));
+      authFieldsEl.appendChild(labeledInput('Value', state.auth.apiKeyValue, v=>state.auth.apiKeyValue=v));
+      const label = el('label',{class:'field-label', text:'Send in'});
+      const sel = el('select',{class:'plain'});
+      sel.appendChild(el('option',{value:'header',text:'Header'}));
+      sel.appendChild(el('option',{value:'query',text:'Query param'}));
+      sel.value = state.auth.apiKeyLoc;
+      sel.addEventListener('change', ()=>{ state.auth.apiKeyLoc = sel.value; });
+      authFieldsEl.appendChild(label);
+      authFieldsEl.appendChild(sel);
+    }
+  }
+  function labeledInput(labelText, value, onInput, type){
+    const wrap = document.createDocumentFragment();
+    wrap.appendChild(el('label',{class:'field-label', text:labelText}));
+    const input = el('input',{type: type||'text', class:'full-w'});
+    input.value = value;
+    input.addEventListener('input', ()=>onInput(input.value));
+    wrap.appendChild(input);
+    return wrap;
+  }
+  document.getElementById('authType').addEventListener('change', (e)=>{
+    state.auth.type = e.target.value;
+    renderAuthFields();
+  });
+  renderAuthFields();
+
+  // ---------------- Body tab ----------------
+  const bodyFieldsEl = document.getElementById('bodyFields');
+  function renderBodyFields(){
+    bodyFieldsEl.innerHTML = '';
+    const t = state.body.type;
+    if(t==='raw-json' || t==='raw-text' || t==='raw-xml'){
+      const label = el('label',{class:'field-label', text:'Raw body'});
+      const ta = el('textarea',{});
+      ta.value = state.body.raw;
+      ta.placeholder = t==='raw-json' ? '{\n  "key": "value"\n}' : (t==='raw-xml' ? '<root></root>' : 'plain text');
+      ta.addEventListener('input', ()=>{ state.body.raw = ta.value; });
+      bodyFieldsEl.appendChild(label);
+      bodyFieldsEl.appendChild(ta);
+      const hint = el('p',{class:'help-text', text:'Sent with a matching Content-Type header unless you\'ve already set your own in the Headers tab.'});
+      bodyFieldsEl.appendChild(hint);
+    } else if(t==='urlencoded'){
+      const holder = el('div',{id:'urlencRows'});
+      bodyFieldsEl.appendChild(holder);
+      renderKVRows('urlencRows', state.body.urlencoded);
+      const addBtn = el('button',{class:'add-row-btn', text:'+ add field'});
+      addBtn.addEventListener('click', ()=>{
+        state.body.urlencoded.push({key:'',value:'',enabled:true});
+        renderKVRows('urlencRows', state.body.urlencoded);
+      });
+      bodyFieldsEl.appendChild(addBtn);
+    } else if(t==='formdata'){
+      const holder = el('div',{id:'formdataRows'});
+      bodyFieldsEl.appendChild(holder);
+      renderKVRows('formdataRows', state.body.formdata, {withFileToggle:true});
+      const addBtn = el('button',{class:'add-row-btn', text:'+ add field'});
+      addBtn.addEventListener('click', ()=>{
+        state.body.formdata.push({key:'',value:'',enabled:true,isFile:false,file:null});
+        renderKVRows('formdataRows', state.body.formdata, {withFileToggle:true});
+      });
+      bodyFieldsEl.appendChild(addBtn);
+      bodyFieldsEl.appendChild(el('p',{class:'help-text', text:'The click icon toggles a field between plain text and a file picker.'}));
+    }
+  }
+  document.getElementById('bodyType').addEventListener('change', (e)=>{
+    state.body.type = e.target.value;
+    renderBodyFields();
+  });
+  renderBodyFields();
+
+  // ---------------- Client cert tab ----------------
+  document.getElementById('certPem').addEventListener('input', e=>{ state.cert.certPem = e.target.value; });
+  document.getElementById('keyPem').addEventListener('input', e=>{ state.cert.keyPem = e.target.value; });
+  document.getElementById('certPass').addEventListener('input', e=>{ state.cert.certPass = e.target.value; });
+
+  function downloadText(filename, text){
+    const blob = new Blob([text], {type:'text/plain'});
+    const url = URL.createObjectURL(blob);
+    const a = el('a',{href:url, download:filename});
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+  document.getElementById('dlCert').addEventListener('click', ()=>{
+    if(!state.cert.certPem.trim()){ alert('Paste a certificate first.'); return; }
+    downloadText('client.crt', state.cert.certPem);
+  });
+  document.getElementById('dlKey').addEventListener('click', ()=>{
+    if(!state.cert.keyPem.trim()){ alert('Paste a private key first.'); return; }
+    downloadText('client.key', state.cert.keyPem);
+  });
+
+  // ---------------- Build request ----------------
+  function buildFullUrl(){
+    let raw = document.getElementById('url').value.trim();
+    if(!raw) return '';
+    let urlObj;
+    try{ urlObj = new URL(raw); } catch(e){
+      try{ urlObj = new URL('https://' + raw); } catch(e2){ return raw; }
+    }
+    state.params.forEach(p=>{
+      if(p.enabled && p.key) urlObj.searchParams.append(p.key, p.value);
+    });
+    if(state.auth.type==='apikey' && state.auth.apiKeyLoc==='query' && state.auth.apiKeyName){
+      urlObj.searchParams.append(state.auth.apiKeyName, state.auth.apiKeyValue);
+    }
+    return urlObj.toString();
+  }
+
+  function buildHeaders(forCurl){
+    const headers = {};
+    state.headers.forEach(h=>{ if(h.enabled && h.key) headers[h.key] = h.value; });
+    if(state.auth.type==='basic' && (state.auth.basicUser || state.auth.basicPass)){
+      const enc = btoa(unescape(encodeURIComponent(state.auth.basicUser+':'+state.auth.basicPass)));
+      headers['Authorization'] = 'Basic ' + enc;
+    } else if(state.auth.type==='bearer' && state.auth.bearerToken){
+      headers['Authorization'] = 'Bearer ' + state.auth.bearerToken;
+    } else if(state.auth.type==='apikey' && state.auth.apiKeyLoc==='header' && state.auth.apiKeyName){
+      headers[state.auth.apiKeyName] = state.auth.apiKeyValue;
+    }
+    return headers;
+  }
+
+  function bodyContentTypeDefault(){
+    switch(state.body.type){
+      case 'raw-json': return 'application/json';
+      case 'raw-xml': return 'application/xml';
+      case 'raw-text': return 'text/plain';
+      case 'urlencoded': return 'application/x-www-form-urlencoded';
+      default: return null;
+    }
+  }
+
+  function buildFetchBody(headers){
+    const t = state.body.type;
+    if(t==='none') return undefined;
+    const hasExplicitCT = Object.keys(headers).some(k=>k.toLowerCase()==='content-type');
+    if(t.startsWith('raw-')){
+      if(!hasExplicitCT) headers['Content-Type'] = bodyContentTypeDefault();
+      return state.body.raw;
+    }
+    if(t==='urlencoded'){
+      if(!hasExplicitCT) headers['Content-Type'] = bodyContentTypeDefault();
+      const usp = new URLSearchParams();
+      state.body.urlencoded.forEach(r=>{ if(r.enabled && r.key) usp.append(r.key, r.value); });
+      return usp;
+    }
+    if(t==='formdata'){
+      const fd = new FormData();
+      state.body.formdata.forEach(r=>{
+        if(!r.enabled || !r.key) return;
+        if(r.isFile && r.file) fd.append(r.key, r.file, r.file.name);
+        else if(!r.isFile) fd.append(r.key, r.value);
+      });
+      // do NOT set Content-Type — browser sets the multipart boundary itself
+      return fd;
+    }
+    return undefined;
+  }
+
+  function buildCurl(fullUrl, method, headers){
+    let lines = [`curl -X ${method} "${fullUrl}"`];
+    Object.keys(headers).forEach(k=>{
+      lines.push(`  -H "${k}: ${String(headers[k]).replace(/"/g,'\\"')}"`);
+    });
+    const t = state.body.type;
+    if(t.startsWith('raw-')){
+      lines.push(`  --data '${(state.body.raw||'').replace(/'/g,"'\\''")}'`);
+    } else if(t==='urlencoded'){
+      state.body.urlencoded.forEach(r=>{
+        if(r.enabled && r.key) lines.push(`  --data-urlencode "${r.key}=${r.value}"`);
+      });
+    } else if(t==='formdata'){
+      state.body.formdata.forEach(r=>{
+        if(!r.enabled || !r.key) return;
+        if(r.isFile) lines.push(`  -F "${r.key}=@/path/to/${r.file ? r.file.name : 'file'}"`);
+        else lines.push(`  -F "${r.key}=${r.value}"`);
+      });
+    }
+    if(state.cert.certPem.trim()) lines.push(`  --cert ./client.crt`);
+    if(state.cert.keyPem.trim()) lines.push(`  --key ./client.key`);
+    if(state.cert.certPass.trim()) lines.push(`  --pass "${state.cert.certPass}"`);
+    return lines.join(' \\\n');
+  }
+
+  // ---------------- Relay (optional local companion that bypasses CORS) ----------------
+  const relayToggle = document.getElementById('relayToggle');
+  const relayUrlInput = document.getElementById('relayUrl');
+  const relayStatus = document.getElementById('relayStatus');
+
+  const RELAY_SCRIPT = atob("IyEvdXNyL2Jpbi9lbnYgbm9kZQovKioKICogV2lyZSByZWxheSDigJQgYSB0aW55IGxvY2FsIGNvbXBhbmlvbiBmb3Igd2lyZS5odG1sLgogKgogKiBXaHkgdGhpcyBleGlzdHM6CiAqIEJyb3dzZXJzIGJsb2NrIGNyb3NzLW9yaWdpbiByZXF1ZXN0cyAoQ09SUykgYW5kIG5ldmVyIGxldCBKYXZhU2NyaXB0IGF0dGFjaAogKiBhIGNsaWVudCBjZXJ0aWZpY2F0ZSB0byBhIHJlcXVlc3Qg4oCUIGJvdGggYXJlIGVuZm9yY2VkIGJlbG93IHRoZSBwYWdlLCBhbmQKICogbm8gYnJvd3Nlci1iYXNlZCB0b29sIGNhbiBvdmVycmlkZSBlaXRoZXIgb25lLiBUaGlzIHJlbGF5IGlzIGEgcGxhaW4KICogTm9kZS5qcyBwcm9jZXNzIHRoYXQgbWFrZXMgdGhlIHJlYWwgSFRUUCBjYWxsIGl0c2VsZiwgb3V0c2lkZSB0aGUgYnJvd3NlciwKICogd2hlcmUgbmVpdGhlciByZXN0cmljdGlvbiBhcHBsaWVzIChDT1JTIGlzIGEgYnJvd3NlciBydWxlLCBub3QgYW4gSFRUUAogKiBydWxlIOKAlCBzZXJ2ZXJzIHRhbGtpbmcgdG8gc2VydmVycyB3ZXJlIG5ldmVyIHN1YmplY3QgdG8gaXQpLgogKgogKiBJdCBzdG9yZXMgbm90aGluZy4gRXZlcnkgcmVxdWVzdCBpcyBmb3J3YXJkZWQgYW5kIGZvcmdvdHRlbiDigJQgbm90aGluZyBpcwogKiB3cml0dGVuIHRvIGRpc2ssIG5vdGhpbmcgaXMgY2FjaGVkLCBub3RoaW5nIGlzIGxvZ2dlZCBleGNlcHQgYSBvbmUtbGluZQogKiAibWV0aG9kICsgdXJsICsgc3RhdHVzIiBub3RlIHRvIHlvdXIgb3duIHRlcm1pbmFsIHNvIHlvdSBjYW4gc2VlIGl0IHdvcmtpbmcuCiAqCiAqIFVzYWdlOgogKiAgIG5vZGUgcmVsYXkuanMgICAgICAgICAgICAjIGxpc3RlbnMgb24gaHR0cDovL2xvY2FsaG9zdDo3ODkwCiAqICAgUE9SVD04MDgwIG5vZGUgcmVsYXkuanMgICMgb3IgcGljayB5b3VyIG93biBwb3J0CiAqLwoKY29uc3QgaHR0cCA9IHJlcXVpcmUoJ2h0dHAnKTsKY29uc3QgaHR0cHMgPSByZXF1aXJlKCdodHRwcycpOwpjb25zdCB7IFVSTCB9ID0gcmVxdWlyZSgndXJsJyk7Cgpjb25zdCBQT1JUID0gcHJvY2Vzcy5lbnYuUE9SVCB8fCA3ODkwOwoKZnVuY3Rpb24gc2V0Q29ycyhyZXMpIHsKICByZXMuc2V0SGVhZGVyKCdBY2Nlc3MtQ29udHJvbC1BbGxvdy1PcmlnaW4nLCAnKicpOwogIHJlcy5zZXRIZWFkZXIoJ0FjY2Vzcy1Db250cm9sLUFsbG93LU1ldGhvZHMnLCAnR0VULCBQT1NULCBPUFRJT05TJyk7CiAgcmVzLnNldEhlYWRlcignQWNjZXNzLUNvbnRyb2wtQWxsb3ctSGVhZGVycycsICdDb250ZW50LVR5cGUnKTsKfQoKZnVuY3Rpb24gcmVhZEJvZHkocmVxKSB7CiAgcmV0dXJuIG5ldyBQcm9taXNlKChyZXNvbHZlLCByZWplY3QpID0+IHsKICAgIGxldCBjaHVua3MgPSBbXTsKICAgIHJlcS5vbignZGF0YScsIGMgPT4gY2h1bmtzLnB1c2goYykpOwogICAgcmVxLm9uKCdlbmQnLCAoKSA9PiByZXNvbHZlKEJ1ZmZlci5jb25jYXQoY2h1bmtzKS50b1N0cmluZygndXRmOCcpKSk7CiAgICByZXEub24oJ2Vycm9yJywgcmVqZWN0KTsKICB9KTsKfQoKZnVuY3Rpb24gcmVsYXlSZXF1ZXN0KHBheWxvYWQpIHsKICByZXR1cm4gbmV3IFByb21pc2UoKHJlc29sdmUpID0+IHsKICAgIGxldCB0YXJnZXQ7CiAgICB0cnkgewogICAgICB0YXJnZXQgPSBuZXcgVVJMKHBheWxvYWQudXJsKTsKICAgIH0gY2F0Y2ggKGUpIHsKICAgICAgcmV0dXJuIHJlc29sdmUoeyBlcnJvcjogJ0ludmFsaWQgVVJMOiAnICsgcGF5bG9hZC51cmwgfSk7CiAgICB9CgogICAgY29uc3QgaXNIdHRwcyA9IHRhcmdldC5wcm90b2NvbCA9PT0gJ2h0dHBzOic7CiAgICBjb25zdCBsaWIgPSBpc0h0dHBzID8gaHR0cHMgOiBodHRwOwoKICAgIGNvbnN0IG9wdGlvbnMgPSB7CiAgICAgIG1ldGhvZDogcGF5bG9hZC5tZXRob2QgfHwgJ0dFVCcsCiAgICAgIGhvc3RuYW1lOiB0YXJnZXQuaG9zdG5hbWUsCiAgICAgIHBvcnQ6IHRhcmdldC5wb3J0IHx8IChpc0h0dHBzID8gNDQzIDogODApLAogICAgICBwYXRoOiB0YXJnZXQucGF0aG5hbWUgKyB0YXJnZXQuc2VhcmNoLAogICAgICBoZWFkZXJzOiBPYmplY3QuYXNzaWduKHt9LCBwYXlsb2FkLmhlYWRlcnMgfHwge30pLAogICAgICAvLyBSZWFzb25hYmxlIGNlaWxpbmcgc28gYSBodW5nIHNlcnZlciBjYW4ndCBibG9jayB0aGUgcmVsYXkgZm9yZXZlci4KICAgICAgdGltZW91dDogMzAwMDAsCiAgICB9OwoKICAgIC8vIFJlYWwgbXV0dWFsIFRMUzogYXR0YWNoIHRoZSBjbGllbnQgY2VydC9rZXkgZGlyZWN0bHkgdG8gdGhpcyBvdXRib3VuZAogICAgLy8gVExTIGNvbm5lY3Rpb24uIFRoaXMgaXMgZXhhY3RseSB3aGF0IGEgYnJvd3NlciBjYW4gbmV2ZXIgZG8gZnJvbSBKUy4KICAgIGlmIChpc0h0dHBzICYmIChwYXlsb2FkLmNlcnQgfHwgcGF5bG9hZC5rZXkpKSB7CiAgICAgIG9wdGlvbnMuY2VydCA9IHBheWxvYWQuY2VydCB8fCB1bmRlZmluZWQ7CiAgICAgIG9wdGlvbnMua2V5ID0gcGF5bG9hZC5rZXkgfHwgdW5kZWZpbmVkOwogICAgICBpZiAocGF5bG9hZC5wYXNzcGhyYXNlKSBvcHRpb25zLnBhc3NwaHJhc2UgPSBwYXlsb2FkLnBhc3NwaHJhc2U7CiAgICAgIC8vIFN0aWxsIHZlcmlmaWVzIHRoZSBzZXJ2ZXIncyBjZXJ0aWZpY2F0ZSBub3JtYWxseSAoc2VjdXJlIGJ5IGRlZmF1bHQpLgogICAgfQoKICAgIGNvbnN0IG91dFJlcSA9IGxpYi5yZXF1ZXN0KG9wdGlvbnMsIChvdXRSZXMpID0+IHsKICAgICAgbGV0IGNodW5rcyA9IFtdOwogICAgICBvdXRSZXMub24oJ2RhdGEnLCBjID0+IGNodW5rcy5wdXNoKGMpKTsKICAgICAgb3V0UmVzLm9uKCdlbmQnLCAoKSA9PiB7CiAgICAgICAgY29uc3QgYnVmID0gQnVmZmVyLmNvbmNhdChjaHVua3MpOwogICAgICAgIGNvbnN0IGNvbnRlbnRUeXBlID0gb3V0UmVzLmhlYWRlcnNbJ2NvbnRlbnQtdHlwZSddIHx8ICcnOwogICAgICAgIGNvbnN0IGlzVGV4dCA9IC9qc29ufHRleHR8eG1sfGh0bWx8amF2YXNjcmlwdHx1cmxlbmNvZGVkLy50ZXN0KGNvbnRlbnRUeXBlKSB8fCBidWYubGVuZ3RoID09PSAwOwogICAgICAgIHJlc29sdmUoewogICAgICAgICAgc3RhdHVzOiBvdXRSZXMuc3RhdHVzQ29kZSwKICAgICAgICAgIHN0YXR1c1RleHQ6IG91dFJlcy5zdGF0dXNNZXNzYWdlIHx8ICcnLAogICAgICAgICAgaGVhZGVyczogb3V0UmVzLmhlYWRlcnMsCiAgICAgICAgICBib2R5SXNCYXNlNjQ6ICFpc1RleHQsCiAgICAgICAgICBib2R5OiBpc1RleHQgPyBidWYudG9TdHJpbmcoJ3V0ZjgnKSA6IGJ1Zi50b1N0cmluZygnYmFzZTY0JyksCiAgICAgICAgfSk7CiAgICAgIH0pOwogICAgfSk7CgogICAgb3V0UmVxLm9uKCd0aW1lb3V0JywgKCkgPT4gewogICAgICBvdXRSZXEuZGVzdHJveSgpOwogICAgICByZXNvbHZlKHsgZXJyb3I6ICdUaW1lZCBvdXQgd2FpdGluZyBmb3IgdGhlIHRhcmdldCBzZXJ2ZXIuJyB9KTsKICAgIH0pOwoKICAgIG91dFJlcS5vbignZXJyb3InLCAoZXJyKSA9PiB7CiAgICAgIHJlc29sdmUoeyBlcnJvcjogZXJyLm1lc3NhZ2UgfSk7CiAgICB9KTsKCiAgICBpZiAocGF5bG9hZC5ib2R5ICYmICFbJ0dFVCcsICdIRUFEJ10uaW5jbHVkZXMoKHBheWxvYWQubWV0aG9kIHx8ICdHRVQnKS50b1VwcGVyQ2FzZSgpKSkgewogICAgICBvdXRSZXEud3JpdGUocGF5bG9hZC5ib2R5KTsKICAgIH0KICAgIG91dFJlcS5lbmQoKTsKICB9KTsKfQoKY29uc3Qgc2VydmVyID0gaHR0cC5jcmVhdGVTZXJ2ZXIoYXN5bmMgKHJlcSwgcmVzKSA9PiB7CiAgc2V0Q29ycyhyZXMpOwoKICBpZiAocmVxLm1ldGhvZCA9PT0gJ09QVElPTlMnKSB7CiAgICByZXMud3JpdGVIZWFkKDIwNCk7CiAgICByZXR1cm4gcmVzLmVuZCgpOwogIH0KCiAgaWYgKHJlcS5tZXRob2QgPT09ICdHRVQnICYmIHJlcS51cmwgPT09ICcvaGVhbHRoJykgewogICAgcmVzLndyaXRlSGVhZCgyMDAsIHsgJ0NvbnRlbnQtVHlwZSc6ICdhcHBsaWNhdGlvbi9qc29uJyB9KTsKICAgIHJldHVybiByZXMuZW5kKEpTT04uc3RyaW5naWZ5KHsgb2s6IHRydWUgfSkpOwogIH0KCiAgaWYgKHJlcS5tZXRob2QgPT09ICdQT1NUJyAmJiByZXEudXJsID09PSAnL3JlbGF5JykgewogICAgdHJ5IHsKICAgICAgY29uc3QgcmF3ID0gYXdhaXQgcmVhZEJvZHkocmVxKTsKICAgICAgY29uc3QgcGF5bG9hZCA9IEpTT04ucGFyc2UocmF3KTsKICAgICAgY29uc3QgcmVzdWx0ID0gYXdhaXQgcmVsYXlSZXF1ZXN0KHBheWxvYWQpOwogICAgICBjb25zb2xlLmxvZyhgW3JlbGF5XSAke3BheWxvYWQubWV0aG9kIHx8ICdHRVQnfSAke3BheWxvYWQudXJsfSAtPiAke3Jlc3VsdC5zdGF0dXMgfHwgJ0VSUk9SOiAnICsgcmVzdWx0LmVycm9yfWApOwogICAgICByZXMud3JpdGVIZWFkKDIwMCwgeyAnQ29udGVudC1UeXBlJzogJ2FwcGxpY2F0aW9uL2pzb24nIH0pOwogICAgICByZXR1cm4gcmVzLmVuZChKU09OLnN0cmluZ2lmeShyZXN1bHQpKTsKICAgIH0gY2F0Y2ggKGUpIHsKICAgICAgcmVzLndyaXRlSGVhZCg0MDAsIHsgJ0NvbnRlbnQtVHlwZSc6ICdhcHBsaWNhdGlvbi9qc29uJyB9KTsKICAgICAgcmV0dXJuIHJlcy5lbmQoSlNPTi5zdHJpbmdpZnkoeyBlcnJvcjogJ0JhZCByZXF1ZXN0OiAnICsgZS5tZXNzYWdlIH0pKTsKICAgIH0KICB9CgogIHJlcy53cml0ZUhlYWQoNDA0LCB7ICdDb250ZW50LVR5cGUnOiAnYXBwbGljYXRpb24vanNvbicgfSk7CiAgcmVzLmVuZChKU09OLnN0cmluZ2lmeSh7IGVycm9yOiAnTm90IGZvdW5kLiBQT1NUIHRvIC9yZWxheSBvciBHRVQgL2hlYWx0aC4nIH0pKTsKfSk7CgpzZXJ2ZXIubGlzdGVuKFBPUlQsICgpID0+IHsKICBjb25zb2xlLmxvZyhgV2lyZSByZWxheSBsaXN0ZW5pbmcgb24gaHR0cDovL2xvY2FsaG9zdDoke1BPUlR9YCk7CiAgY29uc29sZS5sb2coJ05vdGhpbmcgaXMgbG9nZ2VkIGV4Y2VwdCBtZXRob2QgKyBVUkwgKyBzdGF0dXMuIEN0cmwrQyB0byBzdG9wLicpOwp9KTsK");
+
+  relayUrlInput.disabled = true;
+  relayToggle.addEventListener('change', async ()=>{
+    relayUrlInput.disabled = !relayToggle.checked;
+    if(relayToggle.checked) await checkRelay();
+    else relayStatus.textContent = '';
+  });
+  relayUrlInput.addEventListener('change', ()=>{ if(relayToggle.checked) checkRelay(); });
+
+  async function checkRelay(){
+    relayStatus.textContent = 'checking…';
+    relayStatus.className = 'relay-status';
+    try{
+      const base = relayUrlInput.value.replace(/\/relay\/?$/, '');
+      const res = await fetch(base + '/health', { signal: AbortSignal.timeout ? AbortSignal.timeout(3000) : undefined });
+      if(res.ok){ relayStatus.textContent = '● relay reachable'; relayStatus.className = 'relay-status ok'; }
+      else { relayStatus.textContent = '● relay responded oddly'; relayStatus.className = 'relay-status err'; }
+    } catch(e){
+      relayStatus.textContent = '● not reachable — is it running?';
+      relayStatus.className = 'relay-status err';
+    }
+  }
+
+  document.getElementById('relayHowto').addEventListener('click', (e)=>{
+    e.preventDefault();
+    showRelayModal();
+  });
+
+  function showRelayModal(){
+    const backdrop = el('div',{class:'relay-modal-backdrop'});
+    const modal = el('div',{class:'relay-modal'});
+    modal.appendChild(el('h3',{text:'Running the local relay'}));
+    modal.appendChild(el('p',{text:'This is a small, dependency-free Node.js script that makes the outbound request from your machine instead of the browser — so CORS never enters the picture, and it can attach a real client certificate for mutual TLS. It does not log or store request or response contents; the only thing printed to your terminal is "method + URL + status".'}));
+    const p2 = el('p',{});
+    p2.appendChild(document.createTextNode('1. Save the file below as '));
+    p2.appendChild(el('code',{text:'relay.js'}));
+    modal.appendChild(p2);
+    const pre = el('pre',{text: RELAY_SCRIPT});
+    modal.appendChild(pre);
+    const p3 = el('p',{});
+    p3.innerHTML = '2. Run it: <code>node relay.js</code><br>3. Come back here, turn the toggle on, and send your request.';
+    modal.appendChild(p3);
+    const btnRow = el('div',{style:'display:flex;gap:8px;'});
+    const dlBtn = el('button',{class:'btn btn-primary', text:'Download relay.js'});
+    dlBtn.addEventListener('click', ()=>downloadText('relay.js', RELAY_SCRIPT));
+    const closeBtn = el('button',{class:'btn btn-ghost', text:'Close'});
+    closeBtn.addEventListener('click', ()=>document.body.removeChild(backdrop));
+    btnRow.appendChild(dlBtn); btnRow.appendChild(closeBtn);
+    modal.appendChild(btnRow);
+    backdrop.appendChild(modal);
+    backdrop.addEventListener('click', (e)=>{ if(e.target===backdrop) document.body.removeChild(backdrop); });
+    document.body.appendChild(backdrop);
+  }
+
+  async function sendViaRelay(fullUrl, method, headers, bodyForRelay){
+    const payload = {
+      method, url: fullUrl, headers,
+      body: bodyForRelay,
+      cert: state.cert.certPem.trim() || null,
+      key: state.cert.keyPem.trim() || null,
+      passphrase: state.cert.certPass.trim() || null,
+    };
+    const res = await fetch(relayUrlInput.value, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if(data.error) throw new Error(data.error);
+    return data;
+  }
+
+  // ---------------- Send ----------------
+  const led = document.getElementById('led');
+  const sendBtn = document.getElementById('sendBtn');
+  const responseEmpty = document.getElementById('responseEmpty');
+  const responseContent = document.getElementById('responseContent');
+
+  async function sendRequest(){
+    const method = document.getElementById('method').value;
+    const fullUrl = buildFullUrl();
+    if(!fullUrl){ alert('Enter a URL first.'); return; }
+
+    const headers = buildHeaders();
+    const usingRelay = relayToggle.checked;
+
+    if(usingRelay && state.body.type==='formdata'){
+      alert('File/multipart bodies aren\'t supported through the relay yet — turn the relay off for this request, or switch to a raw/urlencoded body.');
+      return;
+    }
+
+    const body = (method==='GET' || method==='HEAD') ? undefined : buildFetchBody(headers);
+    const curl = buildCurl(fullUrl, method, headers);
+
+    led.className = 'led active';
+    sendBtn.textContent = 'Sending…';
+    sendBtn.disabled = true;
+    abortController = new AbortController();
+
+    const t0 = performance.now();
+    try{
+      let statusInfo, headersObj, sizeBytes, bodyPreviewNode, isImage=false;
+
+      if(usingRelay){
+        const bodyForRelay = (body===undefined) ? null :
+          (body instanceof URLSearchParams ? body.toString() : String(body));
+        const data = await sendViaRelay(fullUrl, method, headers, bodyForRelay);
+        statusInfo = { status:data.status, statusText:data.statusText };
+        headersObj = new Map(Object.entries(data.headers || {}));
+        const ct = (data.headers && data.headers['content-type']) || '';
+        if(ct.startsWith('image/') && data.bodyIsBase64){
+          isImage = true;
+          const blob = await (await fetch('data:'+ct+';base64,'+data.body)).blob();
+          sizeBytes = blob.size;
+          bodyPreviewNode = el('img',{class:'img-preview', src:URL.createObjectURL(blob)});
+        } else {
+          const text = data.body || '';
+          sizeBytes = new Blob([text]).size;
+          let pretty = text;
+          try{ pretty = JSON.stringify(JSON.parse(text), null, 2); }catch(e){}
+          bodyPreviewNode = document.createTextNode(pretty || '(empty body)');
+        }
+      } else {
+        const res = await fetch(fullUrl, { method, headers, body, signal: abortController.signal });
+        statusInfo = { status:res.status, statusText:res.statusText };
+        headersObj = res.headers;
+        const ct = res.headers.get('content-type') || '';
+        if(ct.startsWith('image/')){
+          isImage = true;
+          const blob = await res.blob();
+          sizeBytes = blob.size;
+          bodyPreviewNode = el('img',{class:'img-preview', src:URL.createObjectURL(blob)});
+        } else {
+          const text = await res.text();
+          sizeBytes = new Blob([text]).size;
+          let pretty = text;
+          try{ pretty = JSON.stringify(JSON.parse(text), null, 2); }catch(e){}
+          bodyPreviewNode = document.createTextNode(pretty || '(empty body)');
+        }
+      }
+
+      const t1 = performance.now();
+      showResponse({ status: statusInfo.status, statusText: statusInfo.statusText, headers: headersObj, time: t1-t0, size: sizeBytes, bodyNode: bodyPreviewNode, curl, isImage });
+      led.className = (statusInfo.status>=200 && statusInfo.status<400) ? 'led ok' : 'led err';
+    } catch(err){
+      const t1 = performance.now();
+      showError(err, t1-t0, curl, usingRelay);
+      led.className = 'led err';
+    } finally{
+      sendBtn.textContent = 'Send';
+      sendBtn.disabled = false;
+      abortController = null;
+    }
+  }
+
+  function statusClass(status){
+    if(status>=200 && status<300) return 'ok';
+    if(status>=300 && status<400) return 'warn';
+    return 'err';
+  }
+
+  function showResponse(r){
+    responseEmpty.hidden = true;
+    responseContent.hidden = false;
+
+    const pill = document.getElementById('statusPill');
+    pill.className = 'status-pill ' + statusClass(r.status);
+    pill.textContent = r.status + ' ' + r.statusText;
+
+    document.getElementById('timeMeta').innerHTML = '<b>'+Math.round(r.time)+' ms</b>';
+    document.getElementById('sizeMeta').innerHTML = '<b>'+formatBytes(r.size)+'</b>';
+
+    const respBody = document.getElementById('respBody');
+    respBody.innerHTML = '';
+    if(r.isImage) respBody.appendChild(r.bodyNode);
+    else respBody.appendChild(r.bodyNode);
+
+    const list = document.getElementById('respHeadersList');
+    list.innerHTML = '';
+    r.headers.forEach((value, key)=>{
+      const row = el('div',{class:'h-row'});
+      row.appendChild(el('div',{class:'h-key', text:key}));
+      row.appendChild(el('div',{class:'h-val', text:value}));
+      list.appendChild(row);
+    });
+
+    document.getElementById('respCurl').textContent = r.curl;
+  }
+
+  function showError(err, time, curl, usingRelay){
+    responseEmpty.hidden = true;
+    responseContent.hidden = false;
+    const pill = document.getElementById('statusPill');
+    pill.className = 'status-pill err';
+    pill.textContent = 'Failed';
+    document.getElementById('timeMeta').innerHTML = '<b>'+Math.round(time)+' ms</b>';
+    document.getElementById('sizeMeta').innerHTML = '';
+
+    const respBody = document.getElementById('respBody');
+    const isAbort = err.name === 'AbortError';
+    let msg;
+    if(isAbort){
+      msg = 'Request cancelled.';
+    } else if(usingRelay){
+      msg = 'Couldn\'t reach the relay at ' + relayUrlInput.value + '. Make sure it\'s running (node relay.js) and the address above matches, or turn the toggle off to send directly from the browser. Detail: ' + err.message;
+    } else {
+      msg = 'The request didn\'t complete. This is almost always the browser\'s CORS policy blocking a cross-origin call, or the server being unreachable — it is not something this tool (or any browser-based tool) can override. Turn on "Route through local relay" above to bypass CORS entirely, or try the cURL command in the next tab from a terminal.';
+    }
+    respBody.innerHTML = '';
+    respBody.appendChild(el('div',{class:'error-block'},[
+      el('strong',{text: isAbort ? 'Cancelled' : 'Request failed'}),
+      document.createTextNode(' — ' + msg)
+    ]));
+    document.getElementById('respHeadersList').innerHTML = '';
+    document.getElementById('respCurl').textContent = curl;
+  }
+
+  function formatBytes(n){
+    if(n < 1024) return n + ' B';
+    if(n < 1024*1024) return (n/1024).toFixed(1) + ' KB';
+    return (n/(1024*1024)).toFixed(2) + ' MB';
+  }
+
+  sendBtn.addEventListener('click', sendRequest);
+  document.getElementById('url').addEventListener('keydown', e=>{ if(e.key==='Enter') sendRequest(); });
+
+  document.getElementById('clearBtn').addEventListener('click', ()=>{
+    if(!confirm('Reset the URL, headers, body, and everything else on this page?')) return;
+    document.getElementById('url').value='';
+    document.getElementById('method').value='GET';
+    state.params = [{key:'',value:'',enabled:true}];
+    state.headers = [{key:'',value:'',enabled:true}];
+    state.auth = {type:'none', basicUser:'', basicPass:'', bearerToken:'', apiKeyName:'', apiKeyValue:'', apiKeyLoc:'header'};
+    state.body = {type:'none', raw:'', urlencoded:[{key:'',value:'',enabled:true}], formdata:[{key:'',value:'',enabled:true,isFile:false,file:null}]};
+    state.cert = {certPem:'', keyPem:'', certPass:''};
+    document.getElementById('authType').value='none';
+    document.getElementById('bodyType').value='none';
+    document.getElementById('certPem').value='';
+    document.getElementById('keyPem').value='';
+    document.getElementById('certPass').value='';
+    renderKVRows('paramsRows', state.params);
+    renderKVRows('headersRows', state.headers);
+    renderAuthFields();
+    renderBodyFields();
+    responseEmpty.hidden = false;
+    responseContent.hidden = true;
+    led.className = 'led';
+  });
+
+  document.getElementById('copyActive').addEventListener('click', ()=>{
+    const activePanel = document.querySelector('.response-panel .tab-panel.active');
+    const text = activePanel.tagName === 'PRE' ? activePanel.textContent :
+      Array.from(activePanel.querySelectorAll('.h-row')).map(r=>r.children[0].textContent+': '+r.children[1].textContent).join('\n');
+    navigator.clipboard.writeText(text || '').then(()=>{
+      const btn = document.getElementById('copyActive');
+      const orig = btn.textContent; btn.textContent = 'copied';
+      setTimeout(()=>btn.textContent=orig, 1200);
+    });
+  });
+
+})();
+</script>
+</body>
+</html>
