@@ -252,6 +252,7 @@
     overflow: hidden;
     padding-right: 10px;
     padding-left: 8px;
+    white-space: pre;
   }
   .code-input {
     flex: 1;
@@ -280,6 +281,8 @@
     flex: 1; overflow: auto; padding: 14px 16px;
     font-family: 'DM Mono', monospace;
     font-size: 0.78rem; line-height: 1.7;
+    display: flex;
+    flex-direction: column;
   }
   .tree-view::-webkit-scrollbar { width: 6px; }
   .tree-view::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -307,6 +310,61 @@
   .tree-children { padding-left: 22px; border-left: 1px solid var(--border); margin-left: 7px; }
   .tree-children.collapsed { display: none; }
   .tree-count { font-size: 0.65rem; color: var(--muted); margin-left: 4px; }
+
+  /* TABLE VIEW */
+  .table-view {
+    flex: 1; overflow: auto; padding: 14px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem; line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+  }
+  .table-view::-webkit-scrollbar { width: 6px; height: 6px; }
+  .table-view::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .json-table {
+    border-collapse: collapse;
+    width: 100%;
+    background: var(--surface);
+  }
+  .json-table.nested {
+    width: auto;
+    min-width: 100%;
+  }
+  .json-table th, .json-table td {
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+  }
+  .json-table td.wrap { white-space: normal; }
+  .json-table th {
+    background: var(--surface2);
+    color: var(--accent-pdf);
+    font-weight: 500;
+    letter-spacing: 0.03em;
+    position: sticky; top: 0; z-index: 1;
+  }
+  .json-table td.row-index {
+    color: var(--muted);
+    background: rgba(255,255,255,0.02);
+    text-align: right;
+    font-weight: 500;
+  }
+  .json-table td.kv-key {
+    color: #82aaff;
+    background: rgba(255,255,255,0.02);
+    font-weight: 500;
+    width: 1%;
+    white-space: nowrap;
+  }
+  .json-table .cell-string { color: #c3e88d; }
+  .json-table .cell-number { color: #f78c6c; }
+  .json-table .cell-bool { color: #ff8c42; }
+  .json-table .cell-null { color: var(--muted); font-style: italic; }
+  .json-table .cell-empty { color: var(--muted); }
+  .json-table td.has-nested { padding: 4px; }
 
   /* EMPTY STATE */
   .empty-state {
@@ -544,6 +602,7 @@
         <div style="display:flex;gap:8px;align-items:center;">
           <button class="pane-btn" id="view-raw" onclick="setView('raw')" style="color:var(--accent-dev);border-color:rgba(79,255,176,0.3);">Raw</button>
           <button class="pane-btn" id="view-tree" onclick="setView('tree')">Tree</button>
+          <button class="pane-btn" id="view-table" onclick="setView('table')">Table</button>
         </div>
         <div class="pane-actions">
           <button class="pane-btn" onclick="copyOutput()">
@@ -570,6 +629,16 @@
           <div class="empty-desc">Format valid JSON on the left to see the interactive tree view here.</div>
         </div>
         <div id="tree-root"></div>
+      </div>
+
+      <!-- Table view -->
+      <div class="table-view" id="table-view" style="display:none;">
+        <div class="empty-state" id="table-empty">
+          <div class="empty-icon">▦</div>
+          <div class="empty-title">No table yet</div>
+          <div class="empty-desc">Format valid JSON on the left to see the spreadsheet-style table view here.</div>
+        </div>
+        <div id="table-root"></div>
       </div>
 
       <!-- Convert output -->
@@ -661,6 +730,7 @@ function onInputChange() {
   updateStats();
   liveValidate();
   if (currentView === 'tree') renderTree();
+  if (currentView === 'table') renderTable();
   activeConvert = null;
   document.getElementById('convert-tabs').style.display = 'none';
 }
@@ -755,6 +825,7 @@ function formatJSON() {
     updateStats();
     liveValidate();
     if (currentView === 'tree') renderTree();
+    if (currentView === 'table') renderTable();
     toast('Formatted ✓');
   } catch (e) {
     toast('Invalid JSON — cannot format');
@@ -770,6 +841,7 @@ function minifyJSON() {
     document.getElementById('json-output').value = minified;
     updateOutLineNumbers(minified);
     if (currentView === 'tree') renderTree();
+    if (currentView === 'table') renderTable();
     toast('Minified ✓');
   } catch (e) {
     toast('Invalid JSON — cannot minify');
@@ -794,13 +866,17 @@ function setView(v) {
   currentView = v;
   const rawView = document.getElementById('raw-view');
   const treeView = document.getElementById('tree-view');
-  document.getElementById('view-raw').style.color = v === 'raw' ? 'var(--accent-dev)' : '';
-  document.getElementById('view-raw').style.borderColor = v === 'raw' ? 'rgba(79,255,176,0.3)' : '';
-  document.getElementById('view-tree').style.color = v === 'tree' ? 'var(--accent-dev)' : '';
-  document.getElementById('view-tree').style.borderColor = v === 'tree' ? 'rgba(79,255,176,0.3)' : '';
+  const tableView = document.getElementById('table-view');
+  ['raw', 'tree', 'table'].forEach(mode => {
+    const btn = document.getElementById('view-' + mode);
+    btn.style.color = v === mode ? 'var(--accent-dev)' : '';
+    btn.style.borderColor = v === mode ? 'rgba(79,255,176,0.3)' : '';
+  });
   rawView.style.display = v === 'raw' ? 'flex' : 'none';
   treeView.style.display = v === 'tree' ? 'flex' : 'none';
+  tableView.style.display = v === 'table' ? 'flex' : 'none';
   if (v === 'tree') renderTree();
+  if (v === 'table') renderTable();
 }
 
 // ─── TREE VIEW ───────────────────────────────────────────────────────────────
@@ -839,7 +915,7 @@ function buildNode(val, key, expanded = false) {
     toggle.className = 'tree-toggle' + (expanded ? ' open' : '');
     toggle.textContent = '▶';
 
-    const keyEl = key !== null ? `<span class="tree-key">"${escHtml(key)}"</span><span class="tree-colon">: </span>` : '';
+    const keyEl = key !== null ? `<span class="tree-key">"${escHtml(String(key))}"</span><span class="tree-colon">: </span>` : '';
     const summary = document.createElement('span');
     summary.innerHTML = `${keyEl}<span class="tree-bracket">${openB}</span><span class="tree-count">${count} ${isArr ? 'items' : 'keys'}</span>`;
 
@@ -888,7 +964,128 @@ function buildNode(val, key, expanded = false) {
 }
 
 function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ─── TABLE VIEW ──────────────────────────────────────────────────────────────
+function renderTable() {
+  const val = document.getElementById('json-input').value.trim();
+  const root = document.getElementById('table-root');
+  const empty = document.getElementById('table-empty');
+  if (!val) { root.innerHTML = ''; empty.innerHTML = '<div class="empty-icon">▦</div><div class="empty-title">No table yet</div><div class="empty-desc">Format valid JSON on the left to see the spreadsheet-style table view here.</div>'; empty.style.display = 'flex'; return; }
+  try {
+    const parsed = JSON.parse(val);
+    empty.style.display = 'none';
+    root.innerHTML = '';
+    root.appendChild(buildTable(parsed));
+  } catch {
+    root.innerHTML = '';
+    empty.innerHTML = '<div class="empty-icon">⚠️</div><div class="empty-title">Invalid JSON</div><div class="empty-desc">Fix the JSON errors on the left to see the table.</div>';
+    empty.style.display = 'flex';
+  }
+}
+
+// Builds a spreadsheet-like table for any JSON value.
+// - Array of objects  -> one row per item, one column per key (union of all keys)
+// - Array of primitives / mixed -> index | value columns
+// - Plain object -> key | value rows (values that are objects/arrays render as nested tables)
+// - Primitive -> a single-cell table
+function buildTable(data, nested) {
+  const table = document.createElement('table');
+  table.className = 'json-table' + (nested ? ' nested' : '');
+
+  if (Array.isArray(data)) {
+    if (data.length === 0) {
+      table.innerHTML = `<tr><td class="cell-empty">empty array []</td></tr>`;
+      return table;
+    }
+    const allObjects = data.every(item => typeof item === 'object' && item !== null && !Array.isArray(item));
+    if (allObjects) {
+      // Union of keys across all row-objects, preserving first-seen order
+      const keys = [];
+      data.forEach(item => Object.keys(item).forEach(k => { if (!keys.includes(k)) keys.push(k); }));
+
+      const thead = document.createElement('tr');
+      thead.innerHTML = `<th>#</th>` + keys.map(k => `<th>${escHtml(k)}</th>`).join('');
+      table.appendChild(thead);
+
+      data.forEach((item, i) => {
+        const tr = document.createElement('tr');
+        const idxTd = document.createElement('td');
+        idxTd.className = 'row-index';
+        idxTd.textContent = i;
+        tr.appendChild(idxTd);
+        keys.forEach(k => {
+          const td = document.createElement('td');
+          if (Object.prototype.hasOwnProperty.call(item, k)) {
+            appendCell(td, item[k]);
+          } else {
+            td.innerHTML = `<span class="cell-empty">—</span>`;
+          }
+          tr.appendChild(td);
+        });
+        table.appendChild(tr);
+      });
+    } else {
+      const thead = document.createElement('tr');
+      thead.innerHTML = `<th>#</th><th>value</th>`;
+      table.appendChild(thead);
+      data.forEach((item, i) => {
+        const tr = document.createElement('tr');
+        const idxTd = document.createElement('td');
+        idxTd.className = 'row-index';
+        idxTd.textContent = i;
+        const td = document.createElement('td');
+        appendCell(td, item);
+        tr.appendChild(idxTd);
+        tr.appendChild(td);
+        table.appendChild(tr);
+      });
+    }
+    return table;
+  }
+
+  if (typeof data === 'object' && data !== null) {
+    const keys = Object.keys(data);
+    if (keys.length === 0) {
+      table.innerHTML = `<tr><td class="cell-empty">empty object {}</td></tr>`;
+      return table;
+    }
+    keys.forEach(k => {
+      const tr = document.createElement('tr');
+      const keyTd = document.createElement('td');
+      keyTd.className = 'kv-key';
+      keyTd.textContent = k;
+      const valTd = document.createElement('td');
+      appendCell(valTd, data[k]);
+      tr.appendChild(keyTd);
+      tr.appendChild(valTd);
+      table.appendChild(tr);
+    });
+    return table;
+  }
+
+  // Primitive root value
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  appendCell(td, data);
+  tr.appendChild(td);
+  table.appendChild(tr);
+  return table;
+}
+
+// Fills a <td> with either a nested table (for objects/arrays) or a formatted primitive
+function appendCell(td, val) {
+  if (typeof val === 'object' && val !== null) {
+    td.className = 'has-nested';
+    td.appendChild(buildTable(val, true));
+    return;
+  }
+  td.classList.add('wrap');
+  if (val === null) td.innerHTML = `<span class="cell-null">null</span>`;
+  else if (typeof val === 'boolean') td.innerHTML = `<span class="cell-bool">${val}</span>`;
+  else if (typeof val === 'number') td.innerHTML = `<span class="cell-number">${val}</span>`;
+  else td.innerHTML = `<span class="cell-string">${escHtml(String(val))}</span>`;
 }
 
 function expandAll() {
@@ -1031,6 +1228,8 @@ function clearAll() {
   document.getElementById('out-line-numbers').textContent = '1';
   document.getElementById('tree-root').innerHTML = '';
   document.getElementById('tree-empty').style.display = 'flex';
+  document.getElementById('table-root').innerHTML = '';
+  document.getElementById('table-empty').style.display = 'flex';
   document.getElementById('convert-tabs').style.display = 'none';
   document.getElementById('error-msg').style.display = 'none';
   activeConvert = null;
